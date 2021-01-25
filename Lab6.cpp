@@ -93,7 +93,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
-        // TODO: Добавьте сюда любой код прорисовки, использующий HDC...
+
         EndPaint(hWnd, &ps);
     }
     break;
@@ -106,7 +106,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-// Обработчик сообщений для окна "О программе".
+
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
@@ -129,14 +129,14 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 HWND CreateSimpleToolbar(HWND hWndParent)
 {
-    // Declare and initialize local constants.
+   
     const int ImageListID = 0;
     const int numButtons = 4;
     const int bitmapSize = 16;
 
     const DWORD buttonStyles = BTNS_AUTOSIZE;
 
-    // Create the toolbar.
+ 
     HWND hWndToolbar = CreateWindowEx(0, TOOLBARCLASSNAME, NULL,
         WS_CHILD | TBSTYLE_WRAPABLE, 0, 0, 0, 0,
         hWndParent, NULL, hInst, NULL);
@@ -144,23 +144,19 @@ HWND CreateSimpleToolbar(HWND hWndParent)
     if (hWndToolbar == NULL)
         return NULL;
 
-    // Create the image list.
-    g_hImageList = ImageList_Create(bitmapSize, bitmapSize,   // Dimensions of individual bitmaps.
-        ILC_COLOR16 | ILC_MASK,   // Ensures transparent background.
+    g_hImageList = ImageList_Create(bitmapSize, bitmapSize,  
+        ILC_COLOR16 | ILC_MASK,   
         numButtons, 0);
 
-    // Set the image list.
+ 
     SendMessage(hWndToolbar, TB_SETIMAGELIST,
         static_cast<WPARAM>(ImageListID),
         reinterpret_cast<LPARAM>(g_hImageList));
 
-    // Load the button images.
+
     SendMessage(hWndToolbar, TB_LOADIMAGES,
         static_cast<WPARAM>(IDB_STD_SMALL_COLOR),
         reinterpret_cast<LPARAM>(HINST_COMMCTRL));
-
-    // Initialize button info.
-    // IDM_NEW, IDM_OPEN, and IDM_SAVE are application-defined command constants.
 
     TBBUTTON tbButtons[numButtons] =
     {
@@ -170,11 +166,10 @@ HWND CreateSimpleToolbar(HWND hWndParent)
         { MAKELONG(NULL,ImageListID),IDM_EXIT,TBSTATE_ENABLED,buttonStyles,{0},0,reinterpret_cast<INT_PTR>(_T("Exit"))}
     };
 
-    // Add buttons.
+
     SendMessage(hWndToolbar, TB_BUTTONSTRUCTSIZE, static_cast<WPARAM>(sizeof(TBBUTTON)), 0);
     SendMessage(hWndToolbar, TB_ADDBUTTONS, static_cast<WPARAM>(numButtons), reinterpret_cast<LPARAM>(&tbButtons));
 
-    // Resize the toolbar, and then show it.
     SendMessage(hWndToolbar, TB_AUTOSIZE, 0, 0);
     ShowWindow(hWndToolbar, TRUE);
 
