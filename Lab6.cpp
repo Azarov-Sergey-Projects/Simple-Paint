@@ -151,28 +151,28 @@ HWND CreateSimpleToolbar(HWND hWndParent)
 
     // Set the image list.
     SendMessage(hWndToolbar, TB_SETIMAGELIST,
-        (WPARAM)ImageListID,
-        (LPARAM)g_hImageList);
+        static_cast<WPARAM>(ImageListID),
+        reinterpret_cast<LPARAM>(g_hImageList));
 
     // Load the button images.
     SendMessage(hWndToolbar, TB_LOADIMAGES,
-        (WPARAM)IDB_STD_SMALL_COLOR,
-        (LPARAM)HINST_COMMCTRL);
+        static_cast<WPARAM>(IDB_STD_SMALL_COLOR),
+        reinterpret_cast<LPARAM>(HINST_COMMCTRL));
 
     // Initialize button info.
     // IDM_NEW, IDM_OPEN, and IDM_SAVE are application-defined command constants.
 
     TBBUTTON tbButtons[numButtons] =
     {
-        { MAKELONG(STD_FILENEW,  ImageListID), IDM_NEW,  TBSTATE_ENABLED, buttonStyles, {0}, 0, (INT_PTR)L"New" },
-        { MAKELONG(STD_FILEOPEN, ImageListID), IDM_OPEN, TBSTATE_ENABLED, buttonStyles, {0}, 0, (INT_PTR)L"Open"},
-        { MAKELONG(STD_FILESAVE, ImageListID), IDM_SAVE, 0,               buttonStyles, {0}, 0, (INT_PTR)L"Save"},
+        { MAKELONG(STD_FILENEW,  ImageListID), IDM_NEW,  TBSTATE_ENABLED, buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("New"))},
+        { MAKELONG(STD_FILEOPEN, ImageListID), IDM_OPEN, TBSTATE_ENABLED, buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Open"))},
+        { MAKELONG(STD_FILESAVE, ImageListID), IDM_SAVE, 0,               buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Save"))},
         { MAKELONG(NULL,ImageListID),IDM_EXIT,TBSTATE_ENABLED,buttonStyles,{0},0,reinterpret_cast<INT_PTR>(_T("Exit"))}
     };
 
     // Add buttons.
-    SendMessage(hWndToolbar, TB_BUTTONSTRUCTSIZE, (WPARAM)sizeof(TBBUTTON), 0);
-    SendMessage(hWndToolbar, TB_ADDBUTTONS, (WPARAM)numButtons, (LPARAM)&tbButtons);
+    SendMessage(hWndToolbar, TB_BUTTONSTRUCTSIZE, static_cast<WPARAM>(sizeof(TBBUTTON)), 0);
+    SendMessage(hWndToolbar, TB_ADDBUTTONS, static_cast<WPARAM>(numButtons), reinterpret_cast<LPARAM>(&tbButtons));
 
     // Resize the toolbar, and then show it.
     SendMessage(hWndToolbar, TB_AUTOSIZE, 0, 0);
