@@ -14,11 +14,21 @@
 constexpr INT IDM_NEW = 100;
 constexpr INT IDM_OPEN = 101;
 constexpr INT IDM_SAVE = 102;
-constexpr INT IDM_RECT = 103;
-constexpr INT IDM_LINE = 104;
-constexpr INT IDM_CIRCLE = 105;
+constexpr INT IDM_RECT = 97;
+constexpr INT IDM_LINE = 98;
+constexpr INT IDM_CIRCLE = 99;
+constexpr INT RESTORE = 96;
 
 
+static BOOL DrawRect = FALSE;
+static BOOL DrawLine = FALSE;
+static BOOL DrawCircle = FALSE;
+
+static INT count=0;
+static int xPosOld;
+static int yPosOld;
+static int yPosNew;
+static int xPosNew;
 //основные функции
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
@@ -31,16 +41,14 @@ PBITMAPINFO CreateBitmapInfoStruct(HBITMAP hBmp);
 void Save(HWND hWnd);
 //открытие файла
 void Open(HWND hWnd);
-
+//Прорисовка уже нарисованного
+void ClientDraw(HWND hWnd, HBITMAP hBitmap);
 //рисование объектов
-void DrawRectangle(HDC, INT left, INT right, INT top, INT bottom);
+
+void dRect(HWND hWnd);
+void dLine(HWND hWnd,LPARAM lParam);
 
 
-
-static int xPosOld;
-static int yPosOld;
-static int yPosNew;
-static int xPosNew;
 static HWND ToolBar;
 
 
@@ -55,9 +63,10 @@ TBBUTTON tbButtons[] =
     { MAKELONG(STD_FILEOPEN, ImageListID), IDM_OPEN, TBSTATE_ENABLED, buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Open"))},
     { MAKELONG(STD_FILESAVE, ImageListID), IDM_SAVE, TBSTATE_ENABLED, buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Save"))},
     { MAKELONG(STD_DELETE,   ImageListID), IDM_EXIT, TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Exit"))},
-    {MAKELONG(NULL,ImageListID),IDM_RECT,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Rectangle"))},
-    {MAKELONG(NULL,ImageListID),IDM_LINE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Line"))},
-    {MAKELONG(NULL,ImageListID),IDM_CIRCLE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Circle"))}
+    { MAKELONG(NULL,ImageListID),IDM_RECT,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Rectangle"))},
+    { MAKELONG(NULL,ImageListID),IDM_LINE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Line"))},
+    { MAKELONG(NULL,ImageListID),IDM_CIRCLE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Circle"))},
+    { MAKELONG(STD_DELETE,ImageListID),RESTORE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Restore"))}
 
 };
 HIMAGELIST g_hImageList = NULL;
@@ -111,60 +120,117 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     HDC hDC;
-    
-
+    static HBITMAP hBitmap;
+    static PAINTSTRUCT ps;
+    static HPEN Pen;
     switch (uMsg)
     {
     case WM_CREATE:
+        Pen = CreatePen(PS_SOLID, 3, RGB(0, 0, 255));
         ToolBar = CreateSimpleToolbar(hWnd);
+        
         break;
-    case WM_COMMAND:
-    {
-        switch (LOWORD(wParam))
-        {
-        case IDM_ABOUT:
-            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
-            break;
-        case IDM_NEW:
-            InvalidateRect(hWnd, NULL, TRUE);
-            break;
-        case IDM_OPEN:
-            InvalidateRect(hWnd, NULL, TRUE);
-            Open(hWnd);
-            break;
-        case IDM_SAVE:
-            ShowWindow(ToolBar, SW_HIDE);
-            Save(hWnd);
-            ShowWindow(ToolBar, TRUE);
-            break;
-        case IDM_EXIT:
-            DestroyWindow(hWnd);
-            break;
-       }
-    }
-    /*case WM_LBUTTONDOWN:
-        xPosOld = LOWORD(lParam);
-        yPosOld = HIWORD(lParam);
-        InvalidateRect(hWnd, NULL, TRUE);
-        break;
-   /*case WM_MOUSEMOVE:
-        xPosNew = xPosOld;
-        yPosNew = yPosOld;
-        if (WM_LBUTTONDOWN & wParam)
+    case WM_MOUSEMOVE:
+       
+        if (count>=2)
         {
             xPosNew = LOWORD(lParam);
             yPosNew = HIWORD(lParam);
             InvalidateRect(hWnd, NULL, TRUE);
-        }*/
-    break;
-       
+        }
+        break;
+    case WM_LBUTTONDOWN:
+        xPosNew = xPosOld = LOWORD(lParam);
+        yPosNew = yPosOld = HIWORD(lParam);
+        count++;
+        InvalidateRect(hWnd, NULL, TRUE);
+        break;
+    case WM_LBUTTONUP:
+       // InvalidateRect(hWnd, NULL, TRUE);
+        count--;
+        break;
+   case WM_COMMAND:
+   {
+       switch (LOWORD(wParam))
+       {
+       case IDM_ABOUT:
+           DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+           break;
+       case IDM_NEW:
+           InvalidateRect(hWnd, NULL, TRUE);
+           break;
+       case IDM_OPEN:
+           InvalidateRect(hWnd, NULL, TRUE);
+           Open(hWnd);
+           break;
+       case IDM_SAVE:
+           ShowWindow(ToolBar, SW_HIDE);
+           Save(hWnd);
+           ShowWindow(ToolBar, TRUE);
+           break;
+       case IDM_CIRCLE:
+           DrawCircle = TRUE;
+           DrawRect = FALSE;
+           DrawLine = FALSE;
+           count++;
+           break;
+       case IDM_LINE:
+           DrawLine = TRUE;
+           DrawCircle = FALSE;
+           DrawRect = FALSE;
+           count++;
+           break;
+       case IDM_RECT:
+           DrawLine = FALSE;
+           DrawCircle = FALSE;
+           DrawRect = TRUE;
+           count++;
+           break;
+       case RESTORE:
+           count = 0;
+           break;
+       case IDM_EXIT:
+           DestroyWindow(hWnd);
+           break;
+       }
+   }
     case WM_PAINT:
-    {
-        PAINTSTRUCT ps;
-        HDC hDC = BeginPaint(hWnd, &ps);
-        DrawRectangle(hDC, xPosOld, yPosNew, yPosOld, yPosNew);
-
+    {       
+        hDC = BeginPaint(hWnd, &ps);
+        if (DrawLine&&count>=2)
+        {
+            if (xPosOld != xPosNew || yPosOld != yPosNew)
+            {
+                HPEN OldPen = static_cast<HPEN>(SelectObject(hDC, Pen));
+                MoveToEx(hDC, xPosOld, yPosOld, NULL);
+                LineTo(hDC, xPosNew, yPosNew);
+                SelectObject(hDC, OldPen);
+             
+            }
+        }
+        if (DrawCircle && count >= 2)
+        {
+            if (xPosOld != xPosNew || yPosOld != yPosNew)
+            {
+                HPEN OldPen = static_cast<HPEN>(SelectObject(hDC, Pen));
+                Ellipse(hDC, xPosOld, yPosOld, xPosNew, yPosNew);
+                SelectObject(hDC, OldPen);
+              
+            }
+        }
+        if (DrawRect && count >= 2)
+        {
+            if (xPosOld != xPosNew || yPosOld != yPosNew)
+            {
+                HPEN OldPen = static_cast<HPEN>(SelectObject(hDC, Pen));
+                Rectangle(hDC, xPosOld, yPosOld, xPosNew, yPosNew);
+                SelectObject(hDC, OldPen);
+                
+            }
+        }
+       
         EndPaint(hWnd, &ps);
+        
         break;
     }
     case WM_SIZE:
@@ -182,7 +248,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 HWND CreateSimpleToolbar(HWND hWndParent)
 {
-    const int numButtons = 7;
+    const int numButtons = 8;
     const int bitmapSize = 16;
     HWND hWndToolbar = CreateWindowExW(WS_EX_WINDOWEDGE, TOOLBARCLASSNAME, NULL,
         WS_CHILD | TBSTYLE_WRAPABLE, bSize, bSize, bSize, bSize,
@@ -205,7 +271,6 @@ HWND CreateSimpleToolbar(HWND hWndParent)
     return hWndToolbar;
 }
 
-
 void Save(HWND hWnd)
 {
     HDC hdc[2];
@@ -213,10 +278,9 @@ void Save(HWND hWnd)
     RECT rect;
     GetClientRect(hWnd, &rect);
     hdc[0] = GetDC(hWnd);
-    hbitmap = CreateCompatibleBitmap(hdc[0], rect.right, rect.bottom);
+    hbitmap = CreateCompatibleBitmap(hdc[0], rect.right, rect.bottom-bSize);
     hdc[1] = CreateCompatibleDC(hdc[0]);
     SelectObject(hdc[1], hbitmap);
-
     BitBlt(
         hdc[1],
         rect.left,
@@ -230,13 +294,6 @@ void Save(HWND hWnd)
     );
     LPCWSTR fileName = TEXT("Bitmap.bmp");
     CreateBMPFile(fileName, hbitmap);
-}
-
-
-void DrawRectangle(HDC hDC, INT left, INT right, INT top, INT bottom)
-{
-    Rectangle(hDC, left, top, right, bottom);
-
 }
 
 void Open(HWND hWnd)
@@ -270,7 +327,7 @@ void Open(HWND hWnd)
     HDC hMemDC;
     hDC = GetDC(hWnd);
     hMemDC = CreateCompatibleDC(hDC);
-    hBitmap = (HBITMAP)LoadImage(NULL, ofn.lpstrFile, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+    hBitmap = static_cast<HBITMAP>(LoadImage(NULL, ofn.lpstrFile, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE));
     GetObject(hBitmap, sizeof(BITMAP), &bm);
     SelectObject(hMemDC, hBitmap);
     BitBlt(hDC, xWinPos, yWinPos, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0, SRCCOPY);
@@ -299,8 +356,6 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     }
     return (INT_PTR)FALSE;
 }
-
-
 
 PBITMAPINFO CreateBitmapInfoStruct(HBITMAP hBmp)
 {
@@ -436,4 +491,34 @@ void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP)
     // Free memory.  
     GlobalFree((HGLOBAL)lpBits);
 
+}
+
+void ClientDraw(HWND hWnd,HBITMAP hBitmap)
+{
+    HDC hdc[2];
+    RECT rect;
+    GetClientRect(hWnd, &rect);
+    hdc[0] = GetDC(hWnd);
+    hBitmap = CreateCompatibleBitmap(hdc[0], rect.right, rect.bottom);
+    hdc[1] = CreateCompatibleDC(hdc[0]);
+    SelectObject(hdc[1], hBitmap);
+    BitBlt(
+        hdc[1],
+        rect.left,
+        rect.top - bSize,
+        rect.right,
+        rect.bottom,
+        hdc[0],
+        0,
+        0,
+        SRCCOPY
+    );
+   /* ReleaseDC(hWnd, hdc[0]);
+    ReleaseDC(hWnd, hdc[1]);
+    ReleaseDC(hWnd, hdc[2]);
+    DeleteObject(hBitmap);
+    ReleaseDC(hWnd, hdc[0]);
+    ReleaseDC(hWnd, hdc[1]);
+    ReleaseDC(hWnd, hdc[2]);*/
+    UpdateWindow(hWnd);
 }
