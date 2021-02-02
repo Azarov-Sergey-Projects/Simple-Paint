@@ -6,29 +6,14 @@
 #include "Lab6.h"
 #include "framework.h"
 #include <assert.h>
-
+#include <vector>
+#include <tuple>
 
 
 
 #pragma comment(lib, "Comctl32.lib")
-constexpr INT IDM_NEW = 100;
-constexpr INT IDM_OPEN = 101;
-constexpr INT IDM_SAVE = 102;
-constexpr INT IDM_RECT = 97;
-constexpr INT IDM_LINE = 98;
-constexpr INT IDM_CIRCLE = 99;
-constexpr INT RESTORE = 96;
 
 
-static BOOL DrawRect = FALSE;
-static BOOL DrawLine = FALSE;
-static BOOL DrawCircle = FALSE;
-
-static INT count=0;
-static int xPosOld;
-static int yPosOld;
-static int yPosNew;
-static int xPosNew;
 //основные функции
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
@@ -41,13 +26,10 @@ PBITMAPINFO CreateBitmapInfoStruct(HBITMAP hBmp);
 void Save(HWND hWnd);
 //открытие файла
 void Open(HWND hWnd);
-//Прорисовка уже нарисованного
-void ClientDraw(HWND hWnd, HBITMAP hBitmap);
 //рисование объектов
-
 void dRect(HWND hWnd);
 void dLine(HWND hWnd,LPARAM lParam);
-
+void Draw(HDC hDC, std::vector<std::tuple<INT, RECT>> obj);
 
 static HWND ToolBar;
 
@@ -55,8 +37,26 @@ static HWND ToolBar;
 const int ImageListID = 0;
 const DWORD buttonStyles = BTNS_AUTOSIZE;
 const INT bSize = 45;
+static BOOL DrawRect = FALSE;
+static BOOL DrawLine = FALSE;
+static BOOL DrawCircle = FALSE;
+static INT count = 0;
+static int xPosOld;
+static int yPosOld;
+static int yPosNew;
+static int xPosNew;
+static HBITMAP hBitmap;
+HWND hWnd;
 
 
+
+constexpr INT IDM_NEW = 100;
+constexpr INT IDM_OPEN = 101;
+constexpr INT IDM_SAVE = 102;
+constexpr INT IDM_RECT = 97;
+constexpr INT IDM_LINE = 98;
+constexpr INT IDM_CIRCLE = 99;
+constexpr INT RESTORE = 96;
 TBBUTTON tbButtons[] =
 {
     { MAKELONG(STD_FILENEW,  ImageListID), IDM_NEW,  TBSTATE_ENABLED, buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("New"))},
@@ -66,8 +66,6 @@ TBBUTTON tbButtons[] =
     { MAKELONG(NULL,ImageListID),IDM_RECT,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Rectangle"))},
     { MAKELONG(NULL,ImageListID),IDM_LINE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Line"))},
     { MAKELONG(NULL,ImageListID),IDM_CIRCLE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Circle"))},
-    { MAKELONG(STD_DELETE,ImageListID),RESTORE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Restore"))}
-
 };
 HIMAGELIST g_hImageList = NULL;
 HINSTANCE hInst;
@@ -78,7 +76,7 @@ HINSTANCE hInst;
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
 {
     TCHAR szClassName[] = TEXT("Мой класс");
-    HWND hWnd;
+   
     MSG msg;
     WNDCLASSEX wc;
     wc.cbSize = sizeof(wc);
@@ -119,19 +117,24 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    static INT xPosNewNew, yPosNewNew;
+    static std::vector<std::tuple<INT, RECT>> obj;
+    static RECT coord;
     HDC hDC;
-    static HBITMAP hBitmap;
+    HDC bmpDC;
+    static BITMAP bm;
     static PAINTSTRUCT ps;
     static HPEN Pen;
+    
+    RECT rect;
     switch (uMsg)
     {
     case WM_CREATE:
+        InvalidateRect(hWnd, NULL, TRUE);
         Pen = CreatePen(PS_SOLID, 3, RGB(0, 0, 255));
         ToolBar = CreateSimpleToolbar(hWnd);
-        
         break;
     case WM_MOUSEMOVE:
-       
         if (count>=2)
         {
             xPosNew = LOWORD(lParam);
@@ -146,7 +149,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         InvalidateRect(hWnd, NULL, TRUE);
         break;
     case WM_LBUTTONUP:
-       // InvalidateRect(hWnd, NULL, TRUE);
+        InvalidateRect(hWnd, NULL, TRUE);
+        xPosNewNew = LOWORD(lParam);
+        yPosNewNew = HIWORD(lParam);
         count--;
         break;
    case WM_COMMAND:
@@ -154,40 +159,55 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        switch (LOWORD(wParam))
        {
        case IDM_ABOUT:
+           count = 0;
            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
            break;
        case IDM_NEW:
            InvalidateRect(hWnd, NULL, TRUE);
+           obj.resize(0);
+           count = 0;
+           RedrawWindow(hWnd, NULL, NULL, RDW_ERASE);
            break;
        case IDM_OPEN:
+           count = 0;
            InvalidateRect(hWnd, NULL, TRUE);
            Open(hWnd);
            break;
        case IDM_SAVE:
+           count = 0;
            ShowWindow(ToolBar, SW_HIDE);
            Save(hWnd);
            ShowWindow(ToolBar, TRUE);
            break;
        case IDM_CIRCLE:
+           if (DrawLine || DrawRect)
+           {
+               count = 0;
+           }
            DrawCircle = TRUE;
            DrawRect = FALSE;
            DrawLine = FALSE;
            count++;
            break;
        case IDM_LINE:
+           if (DrawCircle || DrawRect)
+           {
+               count = 0;
+           }
            DrawLine = TRUE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
            count++;
            break;
        case IDM_RECT:
-           DrawLine = FALSE;
-           DrawCircle = FALSE;
-           DrawRect = TRUE;
-           count++;
-           break;
-       case RESTORE:
-           count = 0;
+           if (DrawLine || DrawCircle)
+           {
+               count = 0;
+           }
+               DrawLine = FALSE;
+               DrawCircle = FALSE;
+               DrawRect = TRUE;
+               count++;
            break;
        case IDM_EXIT:
            DestroyWindow(hWnd);
@@ -195,8 +215,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        }
    }
     case WM_PAINT:
-    {       
+    {     
+        
         hDC = BeginPaint(hWnd, &ps);
+        Draw(hDC, obj);
         if (DrawLine&&count>=2)
         {
             if (xPosOld != xPosNew || yPosOld != yPosNew)
@@ -205,7 +227,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 MoveToEx(hDC, xPosOld, yPosOld, NULL);
                 LineTo(hDC, xPosNew, yPosNew);
                 SelectObject(hDC, OldPen);
-             
+                coord.left = xPosOld;
+                coord.top = yPosOld;
+                coord.right = xPosNew;
+                coord.bottom = yPosNew;
+                obj.push_back({ IDM_LINE,coord });
             }
         }
         if (DrawCircle && count >= 2)
@@ -215,6 +241,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 HPEN OldPen = static_cast<HPEN>(SelectObject(hDC, Pen));
                 Ellipse(hDC, xPosOld, yPosOld, xPosNew, yPosNew);
                 SelectObject(hDC, OldPen);
+                coord.left = xPosOld;
+                coord.top = yPosOld;
+                coord.right=xPosNew;
+                coord.bottom = yPosNew;
+                obj.push_back({ IDM_CIRCLE,coord });
               
             }
         }
@@ -224,13 +255,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 HPEN OldPen = static_cast<HPEN>(SelectObject(hDC, Pen));
                 Rectangle(hDC, xPosOld, yPosOld, xPosNew, yPosNew);
-                SelectObject(hDC, OldPen);
                 
+                SelectObject(hDC, OldPen);
+                coord.left = xPosOld;
+                coord.top = yPosOld;
+                coord.right = xPosNew;
+                coord.bottom = yPosNew;
+                obj.push_back({ IDM_RECT,coord });
             }
         }
-       
-        EndPaint(hWnd, &ps);
         
+        EndPaint(hWnd, &ps);
         break;
     }
     case WM_SIZE:
@@ -248,7 +283,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 HWND CreateSimpleToolbar(HWND hWndParent)
 {
-    const int numButtons = 8;
+    const int numButtons = 7;
     const int bitmapSize = 16;
     HWND hWndToolbar = CreateWindowExW(WS_EX_WINDOWEDGE, TOOLBARCLASSNAME, NULL,
         WS_CHILD | TBSTYLE_WRAPABLE, bSize, bSize, bSize, bSize,
@@ -493,32 +528,29 @@ void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP)
 
 }
 
-void ClientDraw(HWND hWnd,HBITMAP hBitmap)
+
+
+void Draw(HDC hDC, std::vector<std::tuple<INT, RECT>> obj)
 {
-    HDC hdc[2];
-    RECT rect;
-    GetClientRect(hWnd, &rect);
-    hdc[0] = GetDC(hWnd);
-    hBitmap = CreateCompatibleBitmap(hdc[0], rect.right, rect.bottom);
-    hdc[1] = CreateCompatibleDC(hdc[0]);
-    SelectObject(hdc[1], hBitmap);
-    BitBlt(
-        hdc[1],
-        rect.left,
-        rect.top - bSize,
-        rect.right,
-        rect.bottom,
-        hdc[0],
-        0,
-        0,
-        SRCCOPY
-    );
-   /* ReleaseDC(hWnd, hdc[0]);
-    ReleaseDC(hWnd, hdc[1]);
-    ReleaseDC(hWnd, hdc[2]);
-    DeleteObject(hBitmap);
-    ReleaseDC(hWnd, hdc[0]);
-    ReleaseDC(hWnd, hdc[1]);
-    ReleaseDC(hWnd, hdc[2]);*/
-    UpdateWindow(hWnd);
+    for (int i = 0; i < obj.size(); i++)
+    {
+       
+        if (std::get<0>(obj[i]) == 98)
+        {
+            RECT rect = std::get<1>(obj[i]);
+            MoveToEx(hDC, rect.left, rect.top, NULL);
+            LineTo(hDC, rect.right, rect.bottom);
+
+        }
+        else if (std::get<0>(obj[i]) == 97)
+        {
+            RECT rect = std::get<1>(obj[i]);
+            Rectangle(hDC, rect.left, rect.top, rect.right, rect.bottom);
+        }
+        else if (std::get<0>(obj[i]) == 99)
+        {
+            RECT rect = std::get<1>(obj[i]);
+            Ellipse(hDC, rect.left, rect.top, rect.right, rect.bottom);
+        }
+    }
 }
