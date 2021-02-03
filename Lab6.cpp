@@ -47,7 +47,7 @@ static int yPosNew;
 static int xPosNew;
 static HBITMAP hBitmap;
 HWND hWnd;
-static BOOL Button = FALSE;
+static BOOL ButtonUp = FALSE;
 
 
 constexpr INT IDM_NEW = 100;
@@ -112,11 +112,40 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
     }
     return msg.wParam;
 }
-
+void DrawBoxOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
+{
+    HDC hdc;
+    hdc = GetDC(hwnd);
+    SetROP2(hdc, R2_NOT);
+    SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    Rectangle(hdc, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
+    ReleaseDC(hwnd, hdc);
+}
+void DrawLineOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
+{
+    HDC hDC;
+    hDC = GetDC(hwnd);
+    SetROP2(hDC, R2_NOT);
+    SelectObject(hDC, GetStockObject(NULL_BRUSH));
+    MoveToEx(hDC, ptBeg.x, ptBeg.y,NULL);
+    LineTo(hDC, ptEnd.x, ptEnd.y);
+    ReleaseDC(hwnd, hDC);
+}
+void DrawCircleOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
+{
+    HDC hdc;
+    hdc = GetDC(hwnd);
+    SetROP2(hdc, R2_NOT);
+    SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    Ellipse(hdc, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
+    ReleaseDC(hwnd, hdc);
+}
 
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    static BOOL fBlocking, fValidBox;
+    static POINT ptBeg, ptEnd, ptBoxBeg, ptBoxEnd;
     static INT xPosNewNew, yPosNewNew;
     static std::vector<std::tuple<INT, RECT>> obj;
     static RECT coord;
@@ -135,23 +164,115 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         ToolBar = CreateSimpleToolbar(hWnd);
         break;
     case WM_MOUSEMOVE:
-        if (count>=2)
+        if (DrawRect)
         {
-            xPosNew = LOWORD(lParam);
-            yPosNew = HIWORD(lParam);
-            InvalidateRect(hWnd, NULL, TRUE);
+            if (fBlocking)
+            {
+                SetCursor(LoadCursor(NULL, IDC_CROSS));
+                DrawBoxOutline(hWnd, ptBeg, ptEnd);
+                ptEnd.x = LOWORD(lParam);
+                ptEnd.y = HIWORD(lParam);
+                DrawBoxOutline(hWnd, ptBeg, ptEnd);
+            }
         }
+        if (DrawLine)
+        {
+            if (fBlocking)
+            {
+                SetCursor(LoadCursor(NULL, IDC_CROSS));
+                DrawLineOutline(hWnd, ptBeg, ptEnd);
+                ptEnd.x = LOWORD(lParam);
+                ptEnd.y = HIWORD(lParam);
+                DrawLineOutline(hWnd, ptBeg, ptEnd);
+            }
+        }
+        if (DrawCircle)
+        {
+            if (fBlocking)
+            {
+                SetCursor(LoadCursor(NULL, IDC_CROSS));
+                DrawCircleOutline(hWnd, ptBeg, ptEnd);
+                ptEnd.x = LOWORD(lParam);
+                ptEnd.y = HIWORD(lParam);
+                DrawCircleOutline(hWnd, ptBeg, ptEnd);
+            }
+        }
+
         break;
     case WM_LBUTTONDOWN:
-        xPosNew = xPosOld = LOWORD(lParam);
-        yPosNew = yPosOld = HIWORD(lParam);
         count++;
-        InvalidateRect(hWnd, NULL, TRUE);
+        if (DrawRect)
+        {
+            ptBeg.x = ptEnd.x = LOWORD(lParam);
+            ptBeg.y = ptEnd.y = HIWORD(lParam);
+            DrawBoxOutline(hWnd, ptBeg, ptEnd);
+            SetCursor(LoadCursor(NULL, IDC_CROSS));
+            fBlocking = TRUE;
+        }
+        if (DrawLine)
+        {
+            ptBeg.x = ptEnd.x = LOWORD(lParam);
+            ptBeg.y = ptEnd.y = HIWORD(lParam);
+            DrawLineOutline(hWnd, ptBeg, ptEnd);
+            SetCursor(LoadCursor(NULL, IDC_CROSS));
+            fBlocking = TRUE;
+        }
+        if (DrawCircle)
+        {
+            ptBeg.x = ptEnd.x = LOWORD(lParam);
+            ptBeg.y = ptEnd.y = HIWORD(lParam);
+            DrawCircleOutline(hWnd, ptBeg, ptEnd);
+            SetCursor(LoadCursor(NULL, IDC_CROSS));
+            fBlocking = TRUE;
+        }
         break;
     case WM_LBUTTONUP:
-        InvalidateRect(hWnd, NULL, TRUE);
-        
-        count--;
+        if (DrawRect)
+        {
+            if (fBlocking)
+            {
+                DrawBoxOutline(hWnd, ptBeg, ptEnd);
+                ptBoxBeg = ptBeg;
+                ptBoxEnd.x = LOWORD(lParam);
+                ptBoxEnd.y = HIWORD(lParam);
+                SetCursor(LoadCursor(NULL, IDC_ARROW));
+                fBlocking = FALSE;
+                fValidBox = TRUE;
+                InvalidateRect(hWnd, NULL, TRUE);
+                count--;
+            }
+        }
+        if (DrawLine)
+        {
+            if (fBlocking)
+            {
+                DrawLineOutline(hWnd, ptBeg, ptEnd);
+                ptBoxBeg = ptBeg;
+                ptBoxEnd.x = LOWORD(lParam);
+                ptBoxEnd.y = HIWORD(lParam);
+                SetCursor(LoadCursor(NULL, IDC_ARROW));
+                fBlocking = FALSE;
+                fValidBox = TRUE;
+                InvalidateRect(hWnd, NULL, TRUE);
+                count--;
+            }
+        }
+        if (DrawCircle)
+        {
+            if (fBlocking)
+            {
+                DrawCircleOutline(hWnd, ptBeg, ptEnd);
+                ptBoxBeg = ptBeg;
+                ptBoxEnd.x = LOWORD(lParam);
+                ptBoxEnd.y = HIWORD(lParam);
+                SetCursor(LoadCursor(NULL, IDC_ARROW));
+                fBlocking = FALSE;
+                fValidBox = TRUE;
+                InvalidateRect(hWnd, NULL, TRUE);
+                count--;
+            }
+        }
+    
         break;
    case WM_COMMAND:
    {
@@ -162,13 +283,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
            break;
        case IDM_NEW:
-           InvalidateRect(hWnd, NULL, TRUE);
            obj.resize(0);
+           InvalidateRect(hWnd, NULL, TRUE);
            count = 0;
            RedrawWindow(hWnd, NULL, NULL, RDW_ERASE);
            break;
        case IDM_OPEN:
-           Button = TRUE;
+           ButtonUp = TRUE;
            count = 0;
            InvalidateRect(hWnd, NULL, TRUE);
            obj.resize(0);
@@ -183,8 +304,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        case IDM_CIRCLE:
            if (DrawLine || DrawRect)
            {
+               ptBeg.x = ptEnd.x = 0;
+               ptBeg.y = ptEnd.y = 0;
                count = 0;
            }
+           
            DrawCircle = TRUE;
            DrawRect = FALSE;
            DrawLine = FALSE;
@@ -193,8 +317,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        case IDM_LINE:
            if (DrawCircle || DrawRect)
            {
+               ptBeg.x = ptEnd.x = 0;
+               ptBeg.y = ptEnd.y = 0;
                count = 0;
            }
+           
            DrawLine = TRUE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
@@ -203,6 +330,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        case IDM_RECT:
            if (DrawLine || DrawCircle)
            {
+               ptBeg.x = ptEnd.x = 0;
+               ptBeg.y = ptEnd.y = 0;
                count = 0;
            }
                DrawLine = FALSE;
@@ -218,52 +347,85 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
     {     
         hDC = BeginPaint(hWnd, &ps);
-            Draw(hDC, obj);
-       
-        if (DrawLine&&count>=2)
+        Draw(hDC, obj);
+        if (DrawRect)
         {
-            if (xPosOld != xPosNew || yPosOld != yPosNew)
+            if (fValidBox)
             {
-                HPEN OldPen = static_cast<HPEN>(SelectObject(hDC, Pen));
-                MoveToEx(hDC, xPosOld, yPosOld, NULL);
-                LineTo(hDC, xPosNew, yPosNew);
-                SelectObject(hDC, OldPen);
-                coord.left = xPosOld;
-                coord.top = yPosOld;
-                coord.right = xPosNew;
-                coord.bottom = yPosNew;
-                obj.push_back({ IDM_LINE,coord });
+                SelectObject(hDC, GetStockObject(WHITE_BRUSH));
+                Rectangle(hDC, ptBoxBeg.x, ptBoxBeg.y,
+                    ptBoxEnd.x, ptBoxEnd.y);
+                rect.left = ptBeg.x;
+                rect.top = ptBeg.y;
+                rect.right = ptEnd.x;
+                rect.bottom = ptEnd.y;
+                obj.push_back({ IDM_RECT,rect });
             }
+           /* if (fBlocking)
+            {
+                SetROP2(hDC, R2_NOT);
+                SelectObject(hDC, GetStockObject(NULL_BRUSH));
+                Rectangle(hDC, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
+                RECT rect;
+                rect.left = ptBeg.x;
+                rect.top = ptBeg.y;
+                rect.right = ptEnd.x;
+                rect.bottom = ptEnd.y;
+                obj.push_back({ IDM_RECT,rect });
+            }*/
         }
-        if (DrawCircle && count >= 2)
+        if (DrawLine)
         {
-            if (xPosOld != xPosNew || yPosOld != yPosNew)
+            if (fValidBox)
             {
-                HPEN OldPen = static_cast<HPEN>(SelectObject(hDC, Pen));
-                Ellipse(hDC, xPosOld, yPosOld, xPosNew, yPosNew);
-                SelectObject(hDC, OldPen);
-                coord.left = xPosOld;
-                coord.top = yPosOld;
-                coord.right=xPosNew;
-                coord.bottom = yPosNew;
-                obj.push_back({ IDM_CIRCLE,coord });
-              
+                SelectObject(hDC, GetStockObject(WHITE_BRUSH));
+                MoveToEx(hDC, ptBeg.x, ptBeg.y, NULL);
+                LineTo(hDC, ptEnd.x, ptEnd.y);
+                rect.left = ptBeg.x;
+                rect.top = ptBeg.y;
+                rect.right = ptEnd.x;
+                rect.bottom = ptEnd.y;
+                obj.push_back({ IDM_LINE,rect });
             }
+            /*if (fBlocking)
+            {
+                SetROP2(hDC, R2_NOT);
+                SelectObject(hDC, GetStockObject(NULL_BRUSH));
+                MoveToEx(hDC, ptBeg.x, ptBeg.y, NULL);
+                LineTo(hDC, ptEnd.x, ptEnd.y);
+                RECT rect;
+                rect.left = ptBeg.x;
+                rect.top = ptBeg.y;
+                rect.right = ptEnd.x;
+                rect.bottom = ptEnd.y;
+                obj.push_back({ IDM_LINE,rect });
+            }*/
         }
-        if (DrawRect && count >= 2)
+        if (DrawCircle)
         {
-            if (xPosOld != xPosNew || yPosOld != yPosNew)
+            if (fValidBox)
             {
-                HPEN OldPen = static_cast<HPEN>(SelectObject(hDC, Pen));
-                Rectangle(hDC, xPosOld, yPosOld, xPosNew, yPosNew);
-                
-                SelectObject(hDC, OldPen);
-                coord.left = xPosOld;
-                coord.top = yPosOld;
-                coord.right = xPosNew;
-                coord.bottom = yPosNew;
-                obj.push_back({ IDM_RECT,coord });
+                SelectObject(hDC, GetStockObject(WHITE_BRUSH));
+                Ellipse(hDC, ptBoxBeg.x, ptBoxBeg.y,
+                    ptBoxEnd.x, ptBoxEnd.y);
+                rect.left = ptBeg.x;
+                rect.top = ptBeg.y;
+                rect.right = ptEnd.x;
+                rect.bottom = ptEnd.y;
+                obj.push_back({ IDM_CIRCLE,rect });
             }
+            /*if (fBlocking)
+            {
+                SetROP2(hDC, R2_NOT);
+                SelectObject(hDC, GetStockObject(NULL_BRUSH));
+                Ellipse(hDC, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
+                RECT rect;
+                rect.left = ptBeg.x;
+                rect.top = ptBeg.y;
+                rect.right = ptEnd.x;
+                rect.bottom = ptEnd.y;
+                obj.push_back({ IDM_CIRCLE,rect });
+            }*/
         }
         EndPaint(hWnd, &ps);
         break;
@@ -532,25 +694,28 @@ void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP)
 
 void Draw(HDC hDC, std::vector<std::tuple<INT, RECT>> obj)
 {
+  
     for (int i = 0; i < obj.size(); i++)
     {
-       
+        static RECT rect;
+        static INT num;
         if (std::get<0>(obj[i]) == 98)
         {
-            RECT rect = std::get<1>(obj[i]);
+            rect = std::get<1>(obj[i]);
             MoveToEx(hDC, rect.left, rect.top, NULL);
             LineTo(hDC, rect.right, rect.bottom);
-
         }
         else if (std::get<0>(obj[i]) == 97)
         {
-            RECT rect = std::get<1>(obj[i]);
+            rect = std::get<1>(obj[i]);
             Rectangle(hDC, rect.left, rect.top, rect.right, rect.bottom);
         }
         else if (std::get<0>(obj[i]) == 99)
         {
-            RECT rect = std::get<1>(obj[i]);
+            rect = std::get<1>(obj[i]);
             Ellipse(hDC, rect.left, rect.top, rect.right, rect.bottom);
         }
+       
     }
+   
 }
