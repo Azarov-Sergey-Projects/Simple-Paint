@@ -47,7 +47,7 @@ static int yPosNew;
 static int xPosNew;
 static HBITMAP hBitmap;
 HWND hWnd;
-
+static BOOL Button = FALSE;
 
 
 constexpr INT IDM_NEW = 100;
@@ -150,8 +150,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_LBUTTONUP:
         InvalidateRect(hWnd, NULL, TRUE);
-        xPosNewNew = LOWORD(lParam);
-        yPosNewNew = HIWORD(lParam);
+        
         count--;
         break;
    case WM_COMMAND:
@@ -169,8 +168,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            RedrawWindow(hWnd, NULL, NULL, RDW_ERASE);
            break;
        case IDM_OPEN:
+           Button = TRUE;
            count = 0;
            InvalidateRect(hWnd, NULL, TRUE);
+           obj.resize(0);
            Open(hWnd);
            break;
        case IDM_SAVE:
@@ -216,9 +217,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
    }
     case WM_PAINT:
     {     
-        
         hDC = BeginPaint(hWnd, &ps);
-        Draw(hDC, obj);
+            Draw(hDC, obj);
+       
         if (DrawLine&&count>=2)
         {
             if (xPosOld != xPosNew || yPosOld != yPosNew)
@@ -264,7 +265,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 obj.push_back({ IDM_RECT,coord });
             }
         }
-        
         EndPaint(hWnd, &ps);
         break;
     }
