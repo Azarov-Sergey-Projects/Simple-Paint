@@ -5,6 +5,7 @@
 #include <commctrl.h>
 #include "Lab6.h"
 #include "framework.h"
+#include "resource1.h"
 #include <assert.h>
 #include <vector>
 #include <tuple>
@@ -13,50 +14,61 @@
 
 #pragma comment(lib, "Comctl32.lib")
 
-
 //основные функции
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 HWND CreateSimpleToolbar(HWND hWndParent);
-
+BOOL CALLBACK DlgProc(HWND, UINT, WPARAM, LPARAM);
 //сохранение файла
 void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP);
 PBITMAPINFO CreateBitmapInfoStruct(HBITMAP hBmp);
 void Save(HWND hWnd);
 //открытие файла
 void Open(HWND hWnd);
-//рисование объектов
-void dRect(HWND hWnd);
-void dLine(HWND hWnd,LPARAM lParam);
-void Draw(HDC hDC, std::vector<std::tuple<INT, RECT>> obj);
+//рисование объектов которые уже были
+void Draw(HDC hDC, std::vector<std::tuple<INT, RECT,HPEN>> obj);
 
-static HWND ToolBar;
+HINSTANCE hInst;
 
 
+
+//характеристики кнопок
 const int ImageListID = 0;
 const DWORD buttonStyles = BTNS_AUTOSIZE;
 const INT bSize = 45;
+//нажатие на вид 
 static BOOL DrawRect = FALSE;
 static BOOL DrawLine = FALSE;
 static BOOL DrawCircle = FALSE;
+//счетчик нажатий
 static INT count = 0;
+//позиции мішки
 static int xPosOld;
 static int yPosOld;
 static int yPosNew;
 static int xPosNew;
+//характеристики карандаша
+static HPEN Pen;
+static INT pSize = 3;
+static INT pRed;
+static INT pGreen;
+static INT pBlue;
+//для загрузки файлов 
 static HBITMAP hBitmap;
 HWND hWnd;
-static BOOL ButtonUp = FALSE;
+HWND DialogBox=NULL;
+static HWND ToolBar;
 
-
+//идентификаторы ToolBar
 constexpr INT IDM_NEW = 100;
 constexpr INT IDM_OPEN = 101;
 constexpr INT IDM_SAVE = 102;
 constexpr INT IDM_RECT = 97;
 constexpr INT IDM_LINE = 98;
 constexpr INT IDM_CIRCLE = 99;
-constexpr INT RESTORE = 96;
+constexpr INT IDM_PEN = 96;
+constexpr INT IDM_BRUSH = 95;
+
 TBBUTTON tbButtons[] =
 {
     { MAKELONG(STD_FILENEW,  ImageListID), IDM_NEW,  TBSTATE_ENABLED, buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("New"))},
@@ -66,9 +78,12 @@ TBBUTTON tbButtons[] =
     { MAKELONG(NULL,ImageListID),IDM_RECT,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Rectangle"))},
     { MAKELONG(NULL,ImageListID),IDM_LINE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Line"))},
     { MAKELONG(NULL,ImageListID),IDM_CIRCLE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Circle"))},
+    { MAKELONG(NULL,ImageListID),IDM_PEN,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Pen"))},
+    { MAKELONG(NULL,ImageListID),IDM_BRUSH,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Brush"))},
 };
 HIMAGELIST g_hImageList = NULL;
-HINSTANCE hInst;
+
+
 
 
 
@@ -76,7 +91,6 @@ HINSTANCE hInst;
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
 {
     TCHAR szClassName[] = TEXT("Мой класс");
-   
     MSG msg;
     WNDCLASSEX wc;
     wc.cbSize = sizeof(wc);
@@ -102,9 +116,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
         MessageBox(NULL, TEXT("Не получилось создать окно!"), TEXT("Ошибка"), MB_OK);
         return NULL;
     }
+ 
     ShowWindow(hWnd, iCmdShow);
     UpdateWindow(hWnd);
-
     while (GetMessage(&msg, NULL, NULL, NULL))
     {
         TranslateMessage(&msg);
@@ -112,6 +126,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
     }
     return msg.wParam;
 }
+
 void DrawBoxOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
 {
     HDC hdc;
@@ -121,6 +136,7 @@ void DrawBoxOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
     Rectangle(hdc, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
     ReleaseDC(hwnd, hdc);
 }
+
 void DrawLineOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
 {
     HDC hDC;
@@ -131,6 +147,7 @@ void DrawLineOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
     LineTo(hDC, ptEnd.x, ptEnd.y);
     ReleaseDC(hwnd, hDC);
 }
+
 void DrawCircleOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
 {
     HDC hdc;
@@ -141,19 +158,18 @@ void DrawCircleOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
     ReleaseDC(hwnd, hdc);
 }
 
-
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    HBRUSH Brush;
     static BOOL fBlocking, fValidBox;
     static POINT ptBeg, ptEnd, ptBoxBeg, ptBoxEnd;
-    static INT xPosNewNew, yPosNewNew;
-    static std::vector<std::tuple<INT, RECT>> obj;
+    static std::vector<std::tuple<INT, RECT,HPEN>> obj;
     static RECT coord;
     HDC hDC;
     HDC bmpDC;
-    static BITMAP bm;
     static PAINTSTRUCT ps;
-    static HPEN Pen;
+    
+    HDC hMemDC;
     
     RECT rect;
     switch (uMsg)
@@ -272,30 +288,54 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 count--;
             }
         }
-    
         break;
    case WM_COMMAND:
-   {
+    {
        switch (LOWORD(wParam))
        {
+       case IDM_PEN:
+           fValidBox = FALSE;
+           DrawCircle = FALSE;
+           DrawRect = FALSE;
+           DrawLine = FALSE;
+           DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, static_cast<DLGPROC>(DlgProc));
+           break;
+       case IDM_BRUSH:
+           DrawRect = FALSE;
+           DrawLine = FALSE;
+           DrawCircle = FALSE;
+           break;
        case IDM_ABOUT:
+           DrawCircle = FALSE;
+           DrawRect = FALSE;
+           DrawLine = FALSE;
            count = 0;
            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
            break;
        case IDM_NEW:
+           DrawCircle = FALSE;
+           DrawRect = FALSE;
+           DrawLine = FALSE;
            obj.resize(0);
            InvalidateRect(hWnd, NULL, TRUE);
+           DeleteObject(hBitmap);
+           fValidBox = FALSE;
            count = 0;
-           RedrawWindow(hWnd, NULL, NULL, RDW_ERASE);
            break;
        case IDM_OPEN:
-           ButtonUp = TRUE;
+           DrawCircle = FALSE;
+           DrawRect = FALSE;
+           DrawLine = FALSE;
            count = 0;
            InvalidateRect(hWnd, NULL, TRUE);
            obj.resize(0);
+           fValidBox = FALSE;
            Open(hWnd);
            break;
        case IDM_SAVE:
+           DrawCircle = FALSE;
+           DrawRect = FALSE;
+           DrawLine = FALSE;
            count = 0;
            ShowWindow(ToolBar, SW_HIDE);
            Save(hWnd);
@@ -308,7 +348,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                ptBeg.y = ptEnd.y = 0;
                count = 0;
            }
-           
            DrawCircle = TRUE;
            DrawRect = FALSE;
            DrawLine = FALSE;
@@ -321,7 +360,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                ptBeg.y = ptEnd.y = 0;
                count = 0;
            }
-           
            DrawLine = TRUE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
@@ -339,93 +377,68 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                DrawRect = TRUE;
                count++;
            break;
+      
        case IDM_EXIT:
            DestroyWindow(hWnd);
            break;
        }
    }
     case WM_PAINT:
-    {     
+    { 
         hDC = BeginPaint(hWnd, &ps);
+        Pen = CreatePen(BS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
+        SelectObject(hDC, Pen);
         Draw(hDC, obj);
+      
         if (DrawRect)
         {
             if (fValidBox)
             {
-                SelectObject(hDC, GetStockObject(WHITE_BRUSH));
-                Rectangle(hDC, ptBoxBeg.x, ptBoxBeg.y,
-                    ptBoxEnd.x, ptBoxEnd.y);
+                SelectObject(hDC, Pen);
+                Rectangle(hDC, ptBoxBeg.x, ptBoxBeg.y, ptBoxEnd.x, ptBoxEnd.y);
                 rect.left = ptBeg.x;
                 rect.top = ptBeg.y;
                 rect.right = ptEnd.x;
                 rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_RECT,rect });
+                obj.push_back({ IDM_RECT,rect,Pen });
             }
-           /* if (fBlocking)
+           if (fBlocking)
             {
-                SetROP2(hDC, R2_NOT);
-                SelectObject(hDC, GetStockObject(NULL_BRUSH));
-                Rectangle(hDC, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
-                RECT rect;
-                rect.left = ptBeg.x;
-                rect.top = ptBeg.y;
-                rect.right = ptEnd.x;
-                rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_RECT,rect });
-            }*/
+               InvalidateRect(hWnd, NULL, TRUE);
+            }
         }
         if (DrawLine)
         {
             if (fValidBox)
             {
-                SelectObject(hDC, GetStockObject(WHITE_BRUSH));
                 MoveToEx(hDC, ptBeg.x, ptBeg.y, NULL);
                 LineTo(hDC, ptEnd.x, ptEnd.y);
                 rect.left = ptBeg.x;
                 rect.top = ptBeg.y;
                 rect.right = ptEnd.x;
                 rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_LINE,rect });
+                obj.push_back({ IDM_LINE,rect,Pen });
             }
-            /*if (fBlocking)
+            if (fBlocking)
             {
-                SetROP2(hDC, R2_NOT);
-                SelectObject(hDC, GetStockObject(NULL_BRUSH));
-                MoveToEx(hDC, ptBeg.x, ptBeg.y, NULL);
-                LineTo(hDC, ptEnd.x, ptEnd.y);
-                RECT rect;
-                rect.left = ptBeg.x;
-                rect.top = ptBeg.y;
-                rect.right = ptEnd.x;
-                rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_LINE,rect });
-            }*/
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
         }
         if (DrawCircle)
         {
             if (fValidBox)
             {
-                SelectObject(hDC, GetStockObject(WHITE_BRUSH));
-                Ellipse(hDC, ptBoxBeg.x, ptBoxBeg.y,
-                    ptBoxEnd.x, ptBoxEnd.y);
+                Ellipse(hDC, ptBoxBeg.x, ptBoxBeg.y, ptBoxEnd.x, ptBoxEnd.y);
                 rect.left = ptBeg.x;
                 rect.top = ptBeg.y;
                 rect.right = ptEnd.x;
                 rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_CIRCLE,rect });
+                obj.push_back({ IDM_CIRCLE,rect,Pen });
             }
-            /*if (fBlocking)
+            if (fBlocking)
             {
-                SetROP2(hDC, R2_NOT);
-                SelectObject(hDC, GetStockObject(NULL_BRUSH));
-                Ellipse(hDC, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
-                RECT rect;
-                rect.left = ptBeg.x;
-                rect.top = ptBeg.y;
-                rect.right = ptEnd.x;
-                rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_CIRCLE,rect });
-            }*/
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
         }
         EndPaint(hWnd, &ps);
         break;
@@ -434,6 +447,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         SendMessage(ToolBar, TB_AUTOSIZE, 0, 0);
         break;
     case WM_DESTROY:
+        DeleteObject(hBitmap);
         PostQuitMessage(0);
         break;
     default:
@@ -442,13 +456,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-
 HWND CreateSimpleToolbar(HWND hWndParent)
 {
-    const int numButtons = 7;
+    const int numButtons = 9;
     const int bitmapSize = 16;
     HWND hWndToolbar = CreateWindowExW(WS_EX_WINDOWEDGE, TOOLBARCLASSNAME, NULL,
-        WS_CHILD | TBSTYLE_WRAPABLE, bSize, bSize, bSize, bSize,
+        WS_CHILD | TBSTYLE_WRAPABLE, bSize, bSize, bSize,bSize,
         hWndParent, NULL, hInst, NULL);
     if (hWndToolbar == NULL)
         return NULL;
@@ -518,7 +531,6 @@ void Open(HWND hWnd)
     GetOpenFileName(&ofn);
     if (ofn.lpstrFile == _T("\0")) { return; }
     PAINTSTRUCT ps;
-    HBITMAP hBitmap;
     BITMAP bm;
     HDC hDC;
     HDC hMemDC;
@@ -530,7 +542,7 @@ void Open(HWND hWnd)
     BitBlt(hDC, xWinPos, yWinPos, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0, SRCCOPY);
     DeleteDC(hMemDC);
     ReleaseDC(hWnd, hDC);
-    DeleteObject(hBitmap);
+   // DeleteObject(hBitmap);
     ReleaseDC(hWnd, hDC);
     UpdateWindow(hWnd);
 }
@@ -632,90 +644,160 @@ void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP)
 
     hDC = CreateCompatibleDC(GetWindowDC(GetDesktopWindow()));
     SelectObject(hDC, hBMP);
-
     pbi = CreateBitmapInfoStruct(hBMP);
-
-    pbih = (PBITMAPINFOHEADER)pbi;
-    lpBits = (LPBYTE)GlobalAlloc(GMEM_FIXED, pbih->biSizeImage);
+    pbih = reinterpret_cast<PBITMAPINFOHEADER>(pbi);
+    lpBits = static_cast<LPBYTE>(GlobalAlloc(GMEM_FIXED, pbih->biSizeImage));
 
     assert(lpBits);
 
     // Retrieve the color table (RGBQUAD array) and the bits  
     // (array of palette indices) from the DIB.  
-    assert(GetDIBits(hDC, hBMP, 0, (WORD)pbih->biHeight, lpBits, pbi,
+    assert(GetDIBits(hDC, hBMP, 0, static_cast<DWORD>(pbih->biHeight), lpBits, pbi,
         DIB_RGB_COLORS));
 
     // Create the .BMP file.  
     hf = CreateFile(pszFile,
         GENERIC_READ | GENERIC_WRITE,
-        (DWORD)0,
+        static_cast<DWORD>(0),
         NULL,
         CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL,
-        (HANDLE)NULL);
+        static_cast<HANDLE>(NULL));
     assert(hf != INVALID_HANDLE_VALUE);
 
-    hdr.bfType = 0x4d42;        // 0x42 = "B" 0x4d = "M"  
-    // Compute the size of the entire file.  
-    hdr.bfSize = (DWORD)(sizeof(BITMAPFILEHEADER) +
+    hdr.bfType = 0x4d42;     
+    hdr.bfSize = static_cast<DWORD>((sizeof(BITMAPFILEHEADER) +
         pbih->biSize + pbih->biClrUsed
-        * sizeof(RGBQUAD) + pbih->biSizeImage);
+        * sizeof(RGBQUAD) + pbih->biSizeImage));
     hdr.bfReserved1 = 0;
     hdr.bfReserved2 = 0;
 
     // Compute the offset to the array of color indices.  
-    hdr.bfOffBits = (DWORD)sizeof(BITMAPFILEHEADER) +
+    hdr.bfOffBits = static_cast<DWORD>(sizeof(BITMAPFILEHEADER) +
         pbih->biSize + pbih->biClrUsed
-        * sizeof(RGBQUAD);
+        * sizeof(RGBQUAD));
 
     // Copy the BITMAPFILEHEADER into the .BMP file.  
     assert(WriteFile(hf, (LPVOID)&hdr, sizeof(BITMAPFILEHEADER),
-        (LPDWORD)&dwTmp, NULL));
+        reinterpret_cast<LPDWORD>(&dwTmp), NULL));
 
     // Copy the BITMAPINFOHEADER and RGBQUAD array into the file.  
-    assert(WriteFile(hf, (LPVOID)pbih, sizeof(BITMAPINFOHEADER)
+    assert(WriteFile(hf, static_cast<LPVOID>(pbih), sizeof(BITMAPINFOHEADER)
         + pbih->biClrUsed * sizeof(RGBQUAD),
-        (LPDWORD)&dwTmp, (NULL)));
+        reinterpret_cast<LPDWORD>(&dwTmp), (NULL)));
 
     // Copy the array of color indices into the .BMP file.  
     dwTotal = cb = pbih->biSizeImage;
     hp = lpBits;
-    assert(WriteFile(hf, (LPSTR)hp, (int)cb, (LPDWORD)&dwTmp, NULL));
+    assert(WriteFile(hf, reinterpret_cast<LPSTR>(hp), static_cast<int>(cb), reinterpret_cast<LPDWORD>(&dwTmp), NULL));
 
     // Close the .BMP file.  
     assert(CloseHandle(hf));
 
     // Free memory.  
-    GlobalFree((HGLOBAL)lpBits);
+    GlobalFree(static_cast<HGLOBAL>(lpBits));
 
 }
 
-
-
-void Draw(HDC hDC, std::vector<std::tuple<INT, RECT>> obj)
+void Draw(HDC hDC, std::vector<std::tuple<INT, RECT,HPEN>> obj)
 {
-  
+    HPEN drawPen;
+    HDC hMemDC;
+    BITMAP bm;
+    hMemDC = CreateCompatibleDC(hDC);
+    GetObject(hBitmap, sizeof(BITMAP), &bm);
+    SelectObject(hMemDC, hBitmap);
+    BitBlt(hDC, NULL, bSize, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0, SRCCOPY);
     for (int i = 0; i < obj.size(); i++)
     {
         static RECT rect;
         static INT num;
         if (std::get<0>(obj[i]) == 98)
         {
+            drawPen = std::get<2>(obj[i]);
+            SelectObject(hDC, drawPen);
             rect = std::get<1>(obj[i]);
             MoveToEx(hDC, rect.left, rect.top, NULL);
             LineTo(hDC, rect.right, rect.bottom);
         }
         else if (std::get<0>(obj[i]) == 97)
         {
+            drawPen = std::get<2>(obj[i]);
+            SelectObject(hDC, drawPen);
             rect = std::get<1>(obj[i]);
             Rectangle(hDC, rect.left, rect.top, rect.right, rect.bottom);
         }
         else if (std::get<0>(obj[i]) == 99)
         {
+            drawPen = std::get<2>(obj[i]);
+            SelectObject(hDC, drawPen);
             rect = std::get<1>(obj[i]);
             Ellipse(hDC, rect.left, rect.top, rect.right, rect.bottom);
         }
-       
     }
+    DeleteObject(hMemDC);
+}
+
+BOOL CALLBACK DlgProc(HWND DialogBox, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+       
+        return TRUE;
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDC_SIZE_LINE:
+            pSize = GetDlgItemInt(DialogBox, IDC_SIZE_LINE, NULL, FALSE);
+            break;
+        case IDC_UP_TEXT:
+            pSize++;
+            break;
+        case IDC_DOWN_TEXT:
+            pSize--;
+            break;
+        case IDC_GREEN:
+            pGreen = GetDlgItemInt(DialogBox, IDC_GREEN, NULL, FALSE);
+            break;
+        case IDC_RED:
+           pRed = GetDlgItemInt(DialogBox, IDC_RED, NULL, FALSE);
+            break;
+        case IDC_BLUE:
+            pBlue = GetDlgItemInt(DialogBox, IDC_BLUE, NULL, FALSE);
+            break;
+        case IDC_BUTTON_GREEN:
+           pGreen = 255;
+           pRed = 0;
+           pBlue = 0;
+            break;
+        case IDC_BUTTON_BLUE:
+            pGreen = 0;
+            pRed = 0;
+            pBlue = 255;
+            break;
+        case IDC_BUTTON_RED:
+            pGreen =0;
+            pRed = 255;
+            pBlue = 0;
+            break;
+        case IDOK:
+            
+            EndDialog(DialogBox, 0);
+            return TRUE;
+        case WM_CLOSE:
+
+            EndDialog(DialogBox, LOWORD(wParam));
+            return TRUE;
+            break;
+        case IDCANCEL:
+
+            EndDialog(DialogBox, 0);
+            return  TRUE;
+            break;
+        }
    
+    default:return FALSE;
+    }
+
 }

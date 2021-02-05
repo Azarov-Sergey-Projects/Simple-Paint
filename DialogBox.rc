@@ -1,0 +1,131 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource1.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Русский (Россия) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_RUS)
+LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
+#pragma code_page(1251)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource1.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DIALOG1 DIALOGEX 0, 0, 479, 152
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_PALETTEWINDOW
+CAPTION "Выберите рамер и цвет карандаша"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "ОК",IDOK,7,131,50,14
+    PUSHBUTTON      "Отмена",IDCANCEL,55,131,50,14
+    PUSHBUTTON      "GREEN",IDC_BUTTON_GREEN,320,131,50,14
+    PUSHBUTTON      "RED",IDC_BUTTON_RED,369,131,50,14
+    PUSHBUTTON      "BLUE",IDC_BUTTON_BLUE,418,131,50,14
+    LTEXT           "Введите размеры линий( по умолчанию 3)",IDC_TEXT_1,20,20,153,8
+    PUSHBUTTON      "+",IDC_UP_TEXT,76,34,23,19
+    PUSHBUTTON      "-",IDC_DOWN_TEXT,98,34,23,19
+    EDITTEXT        IDC_SIZE_LINE,20,37,40,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Введите цвет, или выберите его",IDC_STATIC,327,95,124,8
+    EDITTEXT        IDC_GREEN,328,109,40,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_RED,367,109,40,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_BLUE,407,109,40,14,ES_AUTOHSCROLL | ES_NUMBER
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_DIALOG1, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 468
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 145
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_DIALOG1 AFX_DIALOG_LAYOUT
+BEGIN
+    0,
+    100, 100, 100, 100,
+    100, 100, 100, 100,
+    100, 100, 100, 100,
+    100, 100, 100, 100,
+    100, 100, 100, 100,
+    0, 0, 0, 0,
+    100, 100, 100, 100,
+    100, 100, 100, 100,
+    0, 0, 0, 100,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0
+END
+
+#endif    // Русский (Россия) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

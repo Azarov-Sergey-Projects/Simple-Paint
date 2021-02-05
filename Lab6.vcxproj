@@ -142,12 +142,14 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="Lab6.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="resource1.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Lab6.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="DialogBox.rc" />
     <ResourceCompile Include="Lab6.rc" />
   </ItemGroup>
   <ItemGroup>
