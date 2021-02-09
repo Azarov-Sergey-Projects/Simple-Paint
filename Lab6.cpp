@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <commctrl.h>
 #include <vector>
+#include <map>
 #include <tuple>
 #include <assert.h>
 #include "Lab6.h"
@@ -11,12 +12,6 @@
 #include "Resource.h"
 #include "resource1.h"
 #include "resource2.h"
-
-
-
-
-
-
 
 #pragma comment(lib, "Comctl32.lib")
 
@@ -33,7 +28,7 @@ void Save(HWND hWnd);
 //открытие файла
 void Open(HWND hWnd);
 //рисование объектов которые уже были
-void Draw(HDC hDC, std::vector<std::tuple<INT, RECT,HPEN,HBRUSH>> obj);
+void Draw(HDC hDC, std::vector<std::tuple<INT, RECT,HPEN,HBRUSH,BOOL>>obj);
 
 HINSTANCE hInst;
 
@@ -47,6 +42,8 @@ const INT bSize = 45;
 static BOOL DrawRect = FALSE;
 static BOOL DrawLine = FALSE;
 static BOOL DrawCircle = FALSE;
+static BOOL DrawContinuousLine = FALSE;
+static BOOL isDown = FALSE;
 //счетчик нажатий
 static INT count = 0;
 //позиции мішки
@@ -62,10 +59,11 @@ static INT pGreen;
 static INT pBlue;
 //характеристики заливки
 static HBRUSH MyBrush;
+static BOOL hBrushButton = FALSE;
+static BOOL hBrush = FALSE;
 static INT pGreenBrush=255;
 static INT pRedBrush=255;
 static INT pBlueBrush=255;
-static BOOL hBrush=FALSE;
 static POINT BrushPoint;
 //для загрузки файлов 
 static HBITMAP hBitmap;
@@ -83,7 +81,7 @@ constexpr INT IDM_LINE = 98;
 constexpr INT IDM_CIRCLE = 99;
 constexpr INT IDM_PEN = 96;
 constexpr INT IDM_BRUSH = 95;
-
+constexpr INT IDM_СONTINUOUS_LINE = 94;
 TBBUTTON tbButtons[] =
 {
     { MAKELONG(STD_FILENEW,  ImageListID), IDM_NEW,  TBSTATE_ENABLED, buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("New"))},
@@ -92,14 +90,16 @@ TBBUTTON tbButtons[] =
     { MAKELONG(STD_DELETE,   ImageListID), IDM_EXIT, TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Exit"))},
     { MAKELONG(NULL,ImageListID),IDM_RECT,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Rectangle"))},
     { MAKELONG(NULL,ImageListID),IDM_LINE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Line"))},
+     { MAKELONG(NULL,ImageListID),IDM_СONTINUOUS_LINE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Continuous Line"))},
     { MAKELONG(NULL,ImageListID),IDM_CIRCLE,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Circle"))},
     { MAKELONG(NULL,ImageListID),IDM_PEN,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Pen"))},
     { MAKELONG(NULL,ImageListID),IDM_BRUSH,TBSTATE_ENABLED,buttonStyles, {0}, 0, reinterpret_cast<INT_PTR>(_T("Brush"))},
 };
 HIMAGELIST g_hImageList = NULL;
 
-
-
+static std::vector<std::vector<POINT>>LinePoints;
+static std::vector<INT> vCount;
+static INT NumberOfLines = 0;
 
 
 
@@ -173,11 +173,24 @@ void DrawCircleOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
     ReleaseDC(hwnd, hdc);
 }
 
+void DrawLineContinuous(HWND hWnd, std::vector<POINT> Line)
+{
+    HDC hDC;
+    hDC = GetDC(hWnd);
+    MoveToEx(hDC, Line[0].x, Line[0].y, NULL);
+    SelectObject(hDC, Pen);
+    for (int i = 1; i < Line.size(); ++i)
+    {
+        LineTo(hDC, Line[i].x, Line[i].y);
+    }
+    ReleaseDC(hWnd, hDC);
+}
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     static BOOL fBlocking, fValidBox;
     static POINT ptBeg, ptEnd, ptBoxBeg, ptBoxEnd;
-    static std::vector<std::tuple<INT, RECT,HPEN,HBRUSH>> obj;
+    static std::vector<std::tuple<INT, RECT,HPEN,HBRUSH,BOOL>> obj;
+    static std::vector<POINT> continuousLine;
     static RECT coord;
     HDC hDC;
     HDC bmpDC;
@@ -190,6 +203,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         InvalidateRect(hWnd, NULL, TRUE);
         Pen = CreatePen(PS_SOLID, 3, RGB(0, 0, 255));
         ToolBar = CreateSimpleToolbar(hWnd);
+        continuousLine.clear();
         break;
     case WM_MOUSEMOVE:
         if (DrawRect)
@@ -225,6 +239,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 DrawCircleOutline(hWnd, ptBeg, ptEnd);
             }
         }
+        if (DrawContinuousLine)
+        {
+            if (isDown)
+            {
+                POINT pt;
+                pt.x = LOWORD(lParam);
+                pt.y = HIWORD(lParam);
+                continuousLine.push_back(pt);
+                DrawLineContinuous(hWnd, continuousLine);
+            }
+        }
         break;
     case WM_LBUTTONDOWN:
         count++;
@@ -251,6 +276,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             DrawCircleOutline(hWnd, ptBeg, ptEnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
             fBlocking = TRUE;
+        }
+        if (DrawContinuousLine)
+        {
+            continuousLine.clear();
+            POINT pt;
+            pt.x = LOWORD(lParam);
+            pt.y = HIWORD(lParam);
+            continuousLine.push_back(pt);
+            isDown = true;
+            InvalidateRect(hWnd, NULL, TRUE);
         }
         break;
     case WM_LBUTTONUP:
@@ -299,12 +334,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 count--;
             }
         }
+        if (DrawContinuousLine)
+        {
+            isDown = FALSE;
+            InvalidateRect(hWnd, NULL, TRUE);
+        }
         break;
    case WM_COMMAND:
     {
        switch (LOWORD(wParam))
        {
        case IDM_PEN:
+           DrawContinuousLine = FALSE;
            fValidBox = FALSE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
@@ -313,6 +354,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, static_cast<DLGPROC>(DlgProc));
            break;
        case IDM_BRUSH:
+           DrawContinuousLine = FALSE;
            fValidBox = FALSE;
            DrawRect = FALSE;
            DrawLine = FALSE;
@@ -321,6 +363,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG2), hWnd, static_cast<DLGPROC>(DlgProc2));
            break;
        case IDM_ABOUT:
+           DrawContinuousLine = FALSE;
            hBrush = FALSE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
@@ -329,17 +372,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
            break;
        case IDM_NEW:
+           DrawContinuousLine = FALSE;
            hBrush = FALSE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
            DrawLine = FALSE;
            obj.resize(0);
+           LinePoints.resize(0);
            InvalidateRect(hWnd, NULL, TRUE);
            DeleteObject(hBitmap);
            fValidBox = FALSE;
            count = 0;
            break;
        case IDM_OPEN:
+           DrawContinuousLine = FALSE;
            hBrush = FALSE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
@@ -351,6 +397,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            Open(hWnd);
            break;
        case IDM_SAVE:
+           DrawContinuousLine = FALSE;
            hBrush = FALSE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
@@ -367,6 +414,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                ptBeg.y = ptEnd.y = 0;
                count = 0;
            }
+           DrawContinuousLine = FALSE;
            DrawCircle = TRUE;
            DrawRect = FALSE;
            DrawLine = FALSE;
@@ -380,6 +428,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                ptBeg.y = ptEnd.y = 0;
                count = 0;
            }
+           DrawContinuousLine = FALSE;
            DrawLine = TRUE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
@@ -392,22 +441,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                ptBeg.y = ptEnd.y = 0;
                count = 0;
            }
+           DrawContinuousLine = FALSE;
                hBrush = FALSE;
                DrawLine = FALSE;
                DrawCircle = FALSE;
                DrawRect = TRUE;
                count++;
            break;
+       case IDM_СONTINUOUS_LINE:
+           if (DrawLine || DrawCircle||DrawRect)
+           {
+               ptBeg.x = ptEnd.x = 0;
+               ptBeg.y = ptEnd.y = 0;
+               count = 0;
+           }
+           hBrush = FALSE;
+           DrawLine = FALSE;
+           DrawCircle = FALSE;
+           DrawRect = FALSE;
+           DrawContinuousLine = TRUE;
+           break;
       
        case IDM_EXIT:
            DestroyWindow(hWnd);
            break;
        }
-   }
+    }
     case WM_PAINT:
     { 
         hDC = BeginPaint(hWnd, &ps);
+        
+        static BOOL myBool = FALSE;
         MyBrush = CreateSolidBrush(RGB(pRedBrush, pGreenBrush, pBlueBrush));
+        
         Pen = CreatePen(BS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
         SelectObject(hDC, Pen);
         Draw(hDC, obj); 
@@ -416,13 +482,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (fValidBox)
             {
                 SelectObject(hDC, Pen);
-                SelectObject(hDC, MyBrush);
+                if (hBrushButton)
+                {
+                    myBool = TRUE;
+                    SelectObject(hDC, GetStockObject(NULL_BRUSH));
+                }
+                else 
+                {
+                    myBool = FALSE;
+                    SelectObject(hDC, MyBrush);
+                }
                 Rectangle(hDC, ptBoxBeg.x, ptBoxBeg.y, ptBoxEnd.x, ptBoxEnd.y);
                 rect.left = ptBeg.x;
                 rect.top = ptBeg.y;
                 rect.right = ptEnd.x;
                 rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_RECT,rect,Pen,MyBrush });
+                obj.push_back({ IDM_RECT,rect,Pen,MyBrush,myBool });
             }
            if (fBlocking)
             {
@@ -440,7 +515,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 rect.top = ptBeg.y;
                 rect.right = ptEnd.x;
                 rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_LINE,rect,Pen,MyBrush });
+                obj.push_back({ IDM_LINE,rect,Pen,MyBrush,myBool});
             }
             if (fBlocking)
             {
@@ -452,17 +527,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (fValidBox)
             {
                 SelectObject(hDC, Pen);
-                SelectObject(hDC, MyBrush);
+                if (hBrushButton)
+                {
+                    myBool = TRUE;
+                    SelectObject(hDC, GetStockObject(NULL_BRUSH));
+                }
+                else
+                {
+                    myBool = FALSE;
+                    SelectObject(hDC, MyBrush);
+                }
                 Ellipse(hDC, ptBoxBeg.x, ptBoxBeg.y, ptBoxEnd.x, ptBoxEnd.y);
                 rect.left = ptBeg.x;
                 rect.top = ptBeg.y;
                 rect.right = ptEnd.x;
                 rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_CIRCLE,rect,Pen,MyBrush });
+                obj.push_back({ IDM_CIRCLE,rect,Pen,MyBrush,myBool});
             }
             if (fBlocking)
             {
                 InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+        if (DrawContinuousLine)
+        {
+            if (continuousLine.size() > 1)
+            {
+                SelectObject(hDC, Pen);
+                MoveToEx(hDC, continuousLine[0].x, continuousLine[0].y, NULL);
+                for (size_t i = 1; i < continuousLine.size(); ++i) {
+                    LineTo(hDC, continuousLine[i].x, continuousLine[i].y);
+                  
+                }
+                obj.push_back({ IDM_СONTINUOUS_LINE,rect,Pen,MyBrush,myBool });
+                LinePoints.push_back(continuousLine);
             }
         }
         EndPaint(hWnd, &ps);
@@ -483,7 +581,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 HWND CreateSimpleToolbar(HWND hWndParent)
 {
-    const int numButtons = 9;
+    const int numButtons = 10;
     const int bitmapSize = 16;
     HWND hWndToolbar = CreateWindowExW(WS_EX_WINDOWEDGE, TOOLBARCLASSNAME, NULL,
         WS_CHILD | TBSTYLE_WRAPABLE, bSize, bSize, bSize,bSize,
@@ -593,7 +691,7 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 PBITMAPINFO CreateBitmapInfoStruct(HBITMAP hBmp)
 {
-    BITMAP bmp;
+    static BITMAP bmp;
     PBITMAPINFO pbmi;
     WORD    cClrBits;
 
@@ -724,8 +822,8 @@ void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP)
 
 }
 
-void Draw(HDC hDC, std::vector<std::tuple<INT,RECT,HPEN,HBRUSH>> obj)
-{   
+void Draw(HDC hDC, std::vector<std::tuple<INT, RECT, HPEN, HBRUSH, BOOL>> obj)
+{
     HBRUSH Fill;
     HPEN drawPen;
     HDC hMemDC;
@@ -734,6 +832,7 @@ void Draw(HDC hDC, std::vector<std::tuple<INT,RECT,HPEN,HBRUSH>> obj)
     GetObject(hBitmap, sizeof(BITMAP), &bm);
     SelectObject(hMemDC, hBitmap);
     BitBlt(hDC, NULL, bSize, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0, SRCCOPY);
+
     for (int i = 0; i < obj.size(); i++)
     {
         static RECT rect;
@@ -752,11 +851,15 @@ void Draw(HDC hDC, std::vector<std::tuple<INT,RECT,HPEN,HBRUSH>> obj)
             drawPen = std::get<2>(obj[i]);
             SelectObject(hDC, drawPen);
             rect = std::get<1>(obj[i]);
-            SelectObject(hDC, Fill);
+            if (std::get<4>(obj[i]))
+            {
+                SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            }
+            else
+            {
+                SelectObject(hDC, Fill);
+            }
             Rectangle(hDC, rect.left, rect.top, rect.right, rect.bottom);
-           
-            //FillRect(hDC, &rect, Fill);
-            
         }
         else if (std::get<0>(obj[i]) == 99)
         {
@@ -764,10 +867,28 @@ void Draw(HDC hDC, std::vector<std::tuple<INT,RECT,HPEN,HBRUSH>> obj)
             drawPen = std::get<2>(obj[i]);
             SelectObject(hDC, drawPen);
             rect = std::get<1>(obj[i]);
-            SelectObject(hDC, Fill);
+            if (std::get<4>(obj[i]))
+            {
+                SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            }
+            else
+            {
+                SelectObject(hDC, Fill);
+            }
             Ellipse(hDC, rect.left, rect.top, rect.right, rect.bottom);
-          
-          
+        }
+        else if (std::get<0>(obj[i]) == 94)
+        {
+            drawPen = std::get<2>(obj[i]);
+            SelectObject(hDC, drawPen);
+            for (int i = 0; i < LinePoints.size(); i++)
+            {
+                MoveToEx(hDC, LinePoints[i][0].x, LinePoints[i][0].y, NULL);
+                for (int j = 0; j < LinePoints[i].size(); j++)
+                {
+                    LineTo(hDC, LinePoints[i][j].x, LinePoints[i][j].y);
+                }
+            }
         }
     }
     DeleteObject(hMemDC);
@@ -782,7 +903,10 @@ BOOL CALLBACK DlgProc(HWND DialogBox, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
     case WM_INITDIALOG:
-
+        SetDlgItemInt(DialogBox, IDC_STATIC_1, pSize, FALSE);
+        SetDlgItemInt(DialogBox, IDC_STATIC_2, pGreen, FALSE);
+        SetDlgItemInt(DialogBox, IDC_STATIC_3, pRed, FALSE);
+        SetDlgItemInt(DialogBox, IDC_STATIC_4, pBlue, FALSE);
         return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wParam))
@@ -792,38 +916,59 @@ BOOL CALLBACK DlgProc(HWND DialogBox, UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         case IDC_UP_TEXT:
             size++;
+            SetDlgItemInt(DialogBox, IDC_STATIC_1, size, FALSE);
             break;
         case IDC_DOWN_TEXT:
             size--;
+            SetDlgItemInt(DialogBox, IDC_STATIC_1, size, FALSE);
             if (size == 0)
             {
                 MessageBoxW(DialogBox, TEXT("Размер карандаша стал равным 0, размер установлен в 1"), TEXT("Error"), NULL);
                 size = 1;
+                SetDlgItemInt(DialogBox, IDC_STATIC_1, size, FALSE);
             }
             break;
         case IDC_GREEN:
             Green = GetDlgItemInt(DialogBox, IDC_GREEN, NULL, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_2, Green, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_3, Red, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_4, Blue, FALSE);
             break;
         case IDC_RED:
             Red = GetDlgItemInt(DialogBox, IDC_RED, NULL, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_2, Green, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_3, Red, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_4, Blue, FALSE);
             break;
         case IDC_BLUE:
             Blue = GetDlgItemInt(DialogBox, IDC_BLUE, NULL, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_2, Green, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_3, Red, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_4, Blue, FALSE);
             break;
         case IDC_BUTTON_GREEN:
             Green = 255;
             Red = 0;
             Blue = 0;
+            SetDlgItemInt(DialogBox, IDC_STATIC_2, Green, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_3, Red, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_4, Blue, FALSE);
             break;
         case IDC_BUTTON_BLUE:
             Green = 0;
             Red = 0;
             Blue = 255;
+            SetDlgItemInt(DialogBox, IDC_STATIC_2, Green, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_3, Red, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_4, Blue, FALSE);
             break;
         case IDC_BUTTON_RED:
             Green = 0;
             Red = 255;
             Blue = 0;
+            SetDlgItemInt(DialogBox, IDC_STATIC_2, Green, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_3, Red, FALSE);
+            SetDlgItemInt(DialogBox, IDC_STATIC_4, Blue, FALSE);
             break;
         case IDOK:
             pSize = size;
@@ -848,39 +993,72 @@ BOOL CALLBACK DlgProc(HWND DialogBox, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 BOOL CALLBACK DlgProc2(HWND Brush, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    static INT red=0;
-    static INT blue=0;
-    static INT green=0;
+    static INT red=255;
+    static INT blue=255;
+    static INT green=255;
     switch (uMsg)
     {
     case WM_INITDIALOG:
+        SetDlgItemInt(Brush, IDC_STATIC1, pRedBrush, FALSE);
+        SetDlgItemInt(Brush, IDC_STATIC2, pGreenBrush, FALSE);
+        SetDlgItemInt(Brush, IDC_STATIC3, pBlueBrush, FALSE);
         return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
         case IDC_RED_BRUSH:
+            hBrushButton = FALSE;
             red= GetDlgItemInt(Brush, IDC_RED_BRUSH, NULL, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC1, red, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC2, green, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC3, blue, FALSE);
             break;
         case IDC_BLUE_BRUSH:
+            hBrushButton = FALSE;
             blue= GetDlgItemInt(Brush, IDC_BLUE_BRUSH, NULL, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC1, red, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC2, green, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC3, blue, FALSE);
             break;
         case IDC_GREEN_BRUSH:
-            green= GetDlgItemInt(Brush, IDC_BLUE_BRUSH, NULL, FALSE);
+            hBrushButton = FALSE;
+            green = GetDlgItemInt(Brush, IDC_GREEN_BRUSH, NULL, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC1, red, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC2, green, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC3, blue, FALSE);
             break;
         case IDC_BUTTON_BLUE_BRUSH:
+            hBrushButton = FALSE;
             blue = 255;
             green = 0;
             red = 0;
+            SetDlgItemInt(Brush, IDC_STATIC1, red, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC2, green, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC3, blue, FALSE);
             break;
         case IDC_BUTTON_RED_BRUSH:
+            hBrushButton = FALSE;
             red = 255;
             blue = 0;
             green = 0;
+            SetDlgItemInt(Brush, IDC_STATIC1, red, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC2, green, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC3, blue, FALSE);
             break;
         case IDC_BUTTON_GREEN_BRUSH:
+            hBrushButton = FALSE;
             green = 255;
             red = 0;
             blue = 0;
+            SetDlgItemInt(Brush, IDC_STATIC1, red, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC2, green, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC3, blue, FALSE);
+            break;
+        case IDC_BUTTON_NULL_BRUSH:
+            hBrushButton = TRUE;
+            SetDlgItemInt(Brush, IDC_STATIC1, 0, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC2, 0, FALSE);
+            SetDlgItemInt(Brush, IDC_STATIC3, 0, FALSE);
             break;
         case ID_OK:
             pGreenBrush = green;
@@ -899,5 +1077,4 @@ BOOL CALLBACK DlgProc2(HWND Brush, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
     default: return FALSE;
     }
-    
 }

@@ -69,6 +69,10 @@ BEGIN
     EDITTEXT        IDC_GREEN,328,109,40,14,ES_AUTOHSCROLL | ES_NUMBER
     EDITTEXT        IDC_RED,367,109,40,14,ES_AUTOHSCROLL | ES_NUMBER
     EDITTEXT        IDC_BLUE,407,109,40,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "",IDC_STATIC_1,21,63,148,8
+    LTEXT           "",IDC_STATIC_2,328,82,37,8
+    LTEXT           "",IDC_STATIC_3,369,82,32,8
+    LTEXT           "",IDC_STATIC_4,408,83,22,8
 END
 
 
@@ -108,6 +112,10 @@ BEGIN
     100, 100, 100, 100,
     100, 100, 100, 100,
     0, 0, 0, 100,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
+    0, 0, 0, 0,
     0, 0, 0, 0,
     0, 0, 0, 0,
     0, 0, 0, 0,
