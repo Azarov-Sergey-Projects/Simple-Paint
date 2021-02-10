@@ -73,6 +73,7 @@ BEGIN
     LTEXT           "",IDC_STATIC_2,328,82,37,8
     LTEXT           "",IDC_STATIC_3,369,82,32,8
     LTEXT           "",IDC_STATIC_4,408,83,22,8
+    PUSHBUTTON      "Null Brush",IDC_BUTTON_NULL,271,131,50,14
 END
 
 
@@ -112,6 +113,7 @@ BEGIN
     100, 100, 100, 100,
     100, 100, 100, 100,
     0, 0, 0, 100,
+    0, 0, 0, 0,
     0, 0, 0, 0,
     0, 0, 0, 0,
     0, 0, 0, 0,
