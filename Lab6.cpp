@@ -186,6 +186,7 @@ void DrawLineContinuous(HWND hWnd, std::vector<POINT> Line)
     }
     ReleaseDC(hWnd, hDC);
 }
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     static BOOL fBlocking, fValidBox;
@@ -881,6 +882,14 @@ void Draw(HDC hDC, std::vector<std::tuple<INT, RECT, HPEN, HBRUSH, BOOL,BOOL>> o
             Fill = std::get<3>(obj[i]);
             drawPen = std::get<2>(obj[i]);
             SelectObject(hDC, drawPen);
+            if (std::get<4>(obj[i]))
+            {
+                SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            }
+            else
+            {
+                SelectObject(hDC, Fill);
+            }
             Ellipse(hDC, rect.left, rect.top, rect.right, rect.bottom);
         }
         else if (std::get<0>(obj[i]) == 94)
