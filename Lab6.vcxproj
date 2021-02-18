@@ -139,15 +139,24 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AboutProc.h" />
+    <ClInclude Include="Bitmap.h" />
+    <ClInclude Include="ButtonBar.h" />
+    <ClInclude Include="DialogBrush.h" />
+    <ClInclude Include="DialogPen.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Lab6.h" />
+    <ClInclude Include="OpenSaving.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="resource1.h" />
     <ClInclude Include="resource2.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Bitmap.cpp" />
+    <ClCompile Include="ButtonBar.cpp" />
     <ClCompile Include="Lab6.cpp" />
+    <ClCompile Include="OpenSaving.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Brush.rc" />
