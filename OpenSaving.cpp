@@ -21,8 +21,21 @@ void Save(HWND hWnd,INT bSize)
         0,
         SRCCOPY
     );
-    LPCWSTR fileName = TEXT("Bitmap.bmp");
-    CreateBMPFile(fileName, hbitmap);
+    TCHAR szFile[MAX_PATH]=TEXT("");
+    OPENFILENAME ofn;
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hWnd;
+    ofn.lpstrFile = szFile;
+    ofn.lpstrFile[0] = '\0';
+    ofn.nMaxFile = sizeof(szFile);
+    ofn.lpstrFilter = TEXT("Bitmap Files(*.bmp)\0*.bmp\0");
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = NULL;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = NULL;
+    GetSaveFileName(&ofn);
+    CreateBMPFile(ofn.lpstrFile, hbitmap);
 }
 
 HBITMAP Open(HWND hWnd, INT bSize)

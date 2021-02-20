@@ -90,7 +90,7 @@ void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP)
         DIB_RGB_COLORS));
 
     // Create the .BMP file.  
-    hf = CreateFile(pszFile,
+    hf = CreateFileW(pszFile,
         GENERIC_READ | GENERIC_WRITE,
         static_cast<DWORD>(0),
         NULL,

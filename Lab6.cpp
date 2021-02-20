@@ -22,30 +22,22 @@
 //основные функции
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-
 //нажатие на вид 
 static BOOL DrawRect = FALSE;
 static BOOL DrawLine = FALSE;
 static BOOL DrawCircle = FALSE;
 static BOOL DrawContinuousLine = FALSE;
-static BOOL isDown = FALSE;
 //позиции мшки
-static int xPosOld;
-static int yPosOld;
-static int yPosNew;
-static int xPosNew;
 static HPEN Pen;
 //характеристики заливки
 static HBRUSH MyBrush;
-
-static POINT BrushPoint;
 //для загрузки файлов 
 static HBITMAP hBitmap;
+//главное окно и окно ToolBar
 HWND hWnd;
-
-HWND Brush = NULL;
 static HWND ToolBar;
 
+void SetParameters(Rect &myRect, Line &myLine, Circle &myCircle, ContinuousLine &mycLine, BOOL rect, BOOL line, BOOL circle, BOOL cLine);
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
 {
@@ -75,7 +67,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
         MessageBox(NULL, TEXT("Не получилось создать окно!"), TEXT("Ошибка"), MB_OK);
         return NULL;
     }
- 
     ShowWindow(hWnd, iCmdShow);
     UpdateWindow(hWnd);
     while (GetMessage(&msg, NULL, NULL, NULL))
@@ -90,10 +81,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    static BOOL fBlocking, fValidBox;
     HDC hDC;
     static PAINTSTRUCT ps;
-    RECT rect;
     static Rect myRect;
     static Line myLine;
     static Circle myCircle;
@@ -102,24 +91,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
         InvalidateRect(hWnd, NULL, TRUE);
-        Pen = CreatePen(PS_SOLID, 3, RGB(0, 0, 255));
         ToolBar = CreateSimpleToolbar(hWnd);
         break;
     case WM_MOUSEMOVE:
-        if (DrawRect)
+        if (myRect.Draw)
         {
-            if (fBlocking)
+            if (myRect.isDown)
             {
-            SetCursor(LoadCursor(NULL, IDC_CROSS));
-            myRect.DrawOutLine(hWnd);
-            myRect.ptEnd.x = LOWORD(lParam);
-            myRect.ptEnd.y = HIWORD(lParam);
-            myRect.DrawOutLine(hWnd);
+                SetCursor(LoadCursor(NULL, IDC_CROSS));
+                myRect.DrawOutLine(hWnd);
+                myRect.ptEnd.x = LOWORD(lParam);
+                myRect.ptEnd.y = HIWORD(lParam);
+                myRect.DrawOutLine(hWnd);
             }
         }
-        if (DrawLine)
+        if (myLine.Draw)
         {
-            if (fBlocking)
+            if (myLine.isDown)
             {
                 SetCursor(LoadCursor(NULL, IDC_CROSS));
                 myLine.DrawOutline(hWnd);
@@ -128,9 +116,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 myLine.DrawOutline(hWnd);
             }
         }
-        if (DrawCircle)
+        if (myCircle.Draw)
         {
-            if (fBlocking)
+            if (myCircle.isDown)
             {
                 SetCursor(LoadCursor(NULL, IDC_CROSS));
                 myCircle.DrawOutline(hWnd);
@@ -139,9 +127,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 myCircle.DrawOutline(hWnd);
             }
         }
-        if (DrawContinuousLine)
+        if (myContinuousLine.Draw)
         {
-            if (isDown)
+            if (myContinuousLine.isDown)
             {
                 myContinuousLine.pt.x = LOWORD(lParam);
                 myContinuousLine.pt.y = HIWORD(lParam);
@@ -151,7 +139,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_LBUTTONDOWN:
-        if (DrawRect)
+        if (myRect.Draw)
         {
             myRect.ptBeg.x = myRect.ptEnd.x = LOWORD(lParam);
             myRect.ptBeg.y = myRect.ptEnd.y = HIWORD(lParam);
@@ -159,18 +147,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             myRect.Brush = MyBrush;
             myRect.DrawOutLine(hWnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
-            fBlocking = TRUE;
+            myRect.isDown = TRUE;
         }
-        if (DrawLine)
+        if (myLine.Draw)
         {
             myLine.ptBeg.x = myLine.ptEnd.x = LOWORD(lParam);
             myLine.ptBeg.y = myLine.ptEnd.y = HIWORD(lParam);
             myLine.Pen = Pen;
             myLine.DrawOutline(hWnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
-            fBlocking = TRUE;
+            myLine.isDown = TRUE;
         }
-        if (DrawCircle)
+        if (myCircle.Draw)
         {
             myCircle.ptBeg.x = myCircle.ptEnd.x = LOWORD(lParam);
             myCircle.ptBeg.y = myCircle.ptEnd.y = HIWORD(lParam);
@@ -178,12 +166,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             myCircle.Brush = MyBrush;
             myCircle.DrawOutline(hWnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
-            fBlocking = TRUE;
+            myCircle.isDown = TRUE;
         }
-        if (DrawContinuousLine)
+        if (myContinuousLine.Draw)
         {
             SetCapture(hWnd);
-            isDown = TRUE;
+            myContinuousLine.isDown = TRUE;
             myContinuousLine.Line.clear();
             myContinuousLine.pt.x = LOWORD(lParam);
             myContinuousLine.pt.y = HIWORD(lParam);
@@ -193,43 +181,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_LBUTTONUP:
-        if (DrawRect)
+        if (myRect.Draw)
         {
-            if (fBlocking)
-            {
-                myRect.DrawOutLine(hWnd);
-                SetCursor(LoadCursor(NULL, IDC_ARROW));
-                fBlocking = FALSE;
-                fValidBox = TRUE;
-                InvalidateRect(hWnd, NULL, TRUE);
-            }
+             myRect.DrawOutLine(hWnd);
+             SetCursor(LoadCursor(NULL, IDC_ARROW));
+             myRect.isDown = FALSE;
+             InvalidateRect(hWnd, NULL, TRUE);
         }
-        if (DrawLine)
+        if (myLine.Draw)
         {
-            if (fBlocking)
-            {
-                myLine.DrawOutline(hWnd);
-                SetCursor(LoadCursor(NULL, IDC_ARROW));
-                fBlocking = FALSE;
-                fValidBox = TRUE;
-                InvalidateRect(hWnd, NULL, TRUE);
-            }
+             myLine.DrawOutline(hWnd);
+             SetCursor(LoadCursor(NULL, IDC_ARROW));
+             myLine.isDown = FALSE;
+             InvalidateRect(hWnd, NULL, TRUE);
         }
-        if (DrawCircle)
+        if (myCircle.Draw)
         {
-            if (fBlocking)
-            {
-                myCircle.DrawOutline(hWnd);
-                SetCursor(LoadCursor(NULL, IDC_ARROW));
-                fBlocking = FALSE;
-                fValidBox = TRUE;
-                InvalidateRect(hWnd, NULL, TRUE);
-            }
+             myCircle.DrawOutline(hWnd);
+             SetCursor(LoadCursor(NULL, IDC_ARROW));
+             myCircle.isDown = FALSE;
+             InvalidateRect(hWnd, NULL, TRUE);
         }
-        if (DrawContinuousLine)
+        if (myContinuousLine.Draw)
         {
             ReleaseCapture();
-            isDown = FALSE;
+            myContinuousLine.isDown = FALSE;
             myContinuousLine.DrawOutline(hWnd);
             InvalidateRect(hWnd, NULL, TRUE);
         }
@@ -239,87 +215,44 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        switch (LOWORD(wParam))
        {
        case IDM_PEN:
-           DrawContinuousLine = FALSE;
-           fValidBox = FALSE;
-           DrawCircle = FALSE;
-           DrawRect = FALSE;
-           DrawLine = FALSE;
-           hBrush = FALSE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, FALSE);
            DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG1), hWnd, DlgProcPen);
            break;
        case IDM_BRUSH:
-           DrawContinuousLine = FALSE;
-           fValidBox = FALSE;
-           DrawRect = FALSE;
-           DrawLine = FALSE;
-           DrawCircle = FALSE;
-           hBrush = TRUE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, FALSE);
            DialogBox(hInst, MAKEINTRESOURCE(IDD_DIALOG2), hWnd, DlgProcBrush);
            break;
        case IDM_ABOUT:
-           DrawContinuousLine = FALSE;
-           hBrush = FALSE;
-           DrawCircle = FALSE;
-           DrawRect = FALSE;
-           DrawLine = FALSE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, FALSE);
            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
            break;
        case IDM_NEW:
-           DrawContinuousLine = FALSE;
-           hBrush = FALSE;
-           DrawCircle = FALSE;
-           DrawRect = FALSE;
-           DrawLine = FALSE;
-   
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, FALSE);
            InvalidateRect(hWnd, NULL, TRUE);
            DeleteObject(hBitmap);
-           fValidBox = FALSE;
            break;
        case IDM_OPEN:
-           DrawContinuousLine = FALSE;
-           hBrush = FALSE;
-           DrawCircle = FALSE;
-           DrawRect = FALSE;
-           DrawLine = FALSE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, FALSE);
            InvalidateRect(hWnd, NULL, TRUE);
-           fValidBox = FALSE;
            hBitmap=Open(hWnd,bSize);
            break;
        case IDM_SAVE:
-           DrawContinuousLine = FALSE;
-           hBrush = FALSE;
-           DrawCircle = FALSE;
-           DrawRect = FALSE;
-           DrawLine = FALSE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, FALSE);
            ShowWindow(ToolBar, SW_HIDE);
            Save(hWnd,bSize);
            ShowWindow(ToolBar, TRUE);
            break;
        case IDM_CIRCLE:
-           DrawContinuousLine = FALSE;
-           DrawRect = FALSE;
-           DrawLine = FALSE;
-           hBrush = FALSE;
-           DrawCircle = TRUE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, TRUE, FALSE);
            break;
        case IDM_LINE:
-           DrawContinuousLine = FALSE;
-           DrawCircle = FALSE;
-           DrawRect = FALSE;
-           DrawLine = TRUE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, TRUE, FALSE, FALSE);
            break;
        case IDM_RECT:
-            DrawContinuousLine = FALSE;
-            hBrush = FALSE;
-            DrawLine = FALSE;
-            DrawCircle = FALSE;
-            DrawRect = TRUE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine,TRUE, FALSE, FALSE, FALSE);
            break;
        case IDM_СONTINUOUS_LINE:
-           DrawLine = FALSE;
-           DrawCircle = FALSE;
-           DrawRect = FALSE;
-           DrawContinuousLine = TRUE;
+           SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, TRUE);
            break;
        case IDM_EXIT:
            DestroyWindow(hWnd);
@@ -331,22 +264,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         hDC = BeginPaint(hWnd, &ps);
         MyBrush = CreateSolidBrush(RGB(pRedBrush, pGreenBrush, pBlueBrush));
         Pen = CreatePen(PS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
-        if (DrawRect)
+        if (myRect.Draw)
         {
             myRect.DrawOutLine(hWnd);
             myRect.Clear();
         }
-        if (DrawLine)
+        if (myLine.Draw)
         {
             myLine.DrawOutline(hWnd);
             myLine.Clear();
         }
-        if (DrawCircle)
+        if (myCircle.Draw)
         {
             myCircle.DrawOutline(hWnd);
             myCircle.Clear();
         }
-        if (DrawContinuousLine)
+        if (myContinuousLine.Draw)
         {
             myContinuousLine.DrawOutline(hWnd);
             myContinuousLine.Clear();
@@ -365,4 +298,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
     return 0;
+}
+
+void SetParameters(Rect &myRect,Line &myLine,Circle &myCircle,ContinuousLine &mycLine,BOOL rect, BOOL line, BOOL circle, BOOL cLine)
+{
+    myRect.Draw = rect;
+    myLine.Draw = line;
+    myCircle.Draw = circle;
+    mycLine.Draw = cLine;
 }

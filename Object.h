@@ -5,6 +5,8 @@
 class Object
 {
 public:
+	BOOL isDown;
+	BOOL Draw;
 	POINT ptBeg;
 	POINT ptEnd;
 	HPEN Pen;
@@ -112,6 +114,7 @@ public:
 class ContinuousLine :public Object
 {
 public:
+	
 	std::vector<POINT> Line;
 	POINT pt;
 	ContinuousLine()
