@@ -7,7 +7,7 @@
 #include <tuple>
 #include <assert.h>
 
-
+#include "Object.h"
 #include "Bitmap.h"
 #include "OpenSaving.h"
 #include "DialogPen.h"
@@ -19,12 +19,9 @@
 #include "framework.h"
 
 
-
 //основные функции
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-//рисование объектов которые уже были
-void Draw(HDC hDC, std::vector<std::tuple<INT, RECT,HPEN,HBRUSH,BOOL,BOOL>>obj);
 
 //нажатие на вид 
 static BOOL DrawRect = FALSE;
@@ -32,8 +29,6 @@ static BOOL DrawLine = FALSE;
 static BOOL DrawCircle = FALSE;
 static BOOL DrawContinuousLine = FALSE;
 static BOOL isDown = FALSE;
-//счетчик нажатий
-static INT count = 0;
 //позиции мшки
 static int xPosOld;
 static int yPosOld;
@@ -50,13 +45,6 @@ HWND hWnd;
 
 HWND Brush = NULL;
 static HWND ToolBar;
-
-
-
-static std::vector<std::vector<POINT>>LinePoints;
-static std::vector<INT> vCount;
-static INT NumberOfLines = 0;
-
 
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
@@ -98,80 +86,35 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
     return msg.wParam;
 }
 
-void DrawBoxOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
-{
-    HDC hDC;  
-    hDC = GetDC(hwnd);
-    SetROP2(hDC, R2_NOT);
-    SelectObject(hDC, GetStockObject(NULL_BRUSH));
-    Rectangle(hDC, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
-    ReleaseDC(hwnd, hDC);
-}
 
-void DrawLineOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
-{
-    HDC hDC;
-    hDC = GetDC(hwnd);
-    SetROP2(hDC, R2_NOT);
-    SelectObject(hDC, GetStockObject(NULL_BRUSH));
-    MoveToEx(hDC, ptBeg.x, ptBeg.y,NULL);
-    LineTo(hDC, ptEnd.x, ptEnd.y);
-    ReleaseDC(hwnd, hDC);
-}
-
-void DrawCircleOutline(HWND hwnd, POINT ptBeg, POINT ptEnd)
-{
-    HDC hdc;
-    hdc = GetDC(hwnd);
-    SetROP2(hdc, R2_NOT);
-    SelectObject(hdc, GetStockObject(NULL_BRUSH));
-    Ellipse(hdc, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
-    ReleaseDC(hwnd, hdc);
-}
-
-void DrawLineContinuous(HWND hWnd, std::vector<POINT> Line)
-{
-    HDC hDC;
-    hDC = GetDC(hWnd);
-    MoveToEx(hDC, Line[0].x, Line[0].y, NULL);
-    SelectObject(hDC, Pen);
-    for (int i = 1; i < Line.size(); ++i)
-    {
-        LineTo(hDC, Line[i].x, Line[i].y);
-    }
-    ReleaseDC(hWnd, hDC);
-}
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     static BOOL fBlocking, fValidBox;
-    static POINT ptBeg, ptEnd, ptBoxBeg, ptBoxEnd;
-    static std::vector<std::tuple<INT, RECT,HPEN,HBRUSH,BOOL,BOOL>> obj;
-    static std::vector<POINT> continuousLine;
-    static RECT coord;
     HDC hDC;
-    HDC bmpDC;
     static PAINTSTRUCT ps;
-    HDC hMemDC;
     RECT rect;
+    static Rect myRect;
+    static Line myLine;
+    static Circle myCircle;
+    static ContinuousLine myContinuousLine;
     switch (uMsg)
     {
     case WM_CREATE:
         InvalidateRect(hWnd, NULL, TRUE);
         Pen = CreatePen(PS_SOLID, 3, RGB(0, 0, 255));
         ToolBar = CreateSimpleToolbar(hWnd);
-        continuousLine.clear();
         break;
     case WM_MOUSEMOVE:
         if (DrawRect)
         {
             if (fBlocking)
             {
-                SetCursor(LoadCursor(NULL, IDC_CROSS));
-                DrawBoxOutline(hWnd, ptBeg, ptEnd);
-                ptEnd.x = LOWORD(lParam);
-                ptEnd.y = HIWORD(lParam);
-                DrawBoxOutline(hWnd, ptBeg, ptEnd);
+            SetCursor(LoadCursor(NULL, IDC_CROSS));
+            myRect.DrawOutLine(hWnd);
+            myRect.ptEnd.x = LOWORD(lParam);
+            myRect.ptEnd.y = HIWORD(lParam);
+            myRect.DrawOutLine(hWnd);
             }
         }
         if (DrawLine)
@@ -179,10 +122,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (fBlocking)
             {
                 SetCursor(LoadCursor(NULL, IDC_CROSS));
-                DrawLineOutline(hWnd, ptBeg, ptEnd);
-                ptEnd.x = LOWORD(lParam);
-                ptEnd.y = HIWORD(lParam);
-                DrawLineOutline(hWnd, ptBeg, ptEnd);
+                myLine.DrawOutline(hWnd);
+                myLine.ptEnd.x = LOWORD(lParam);
+                myLine.ptEnd.y = HIWORD(lParam);
+                myLine.DrawOutline(hWnd);
             }
         }
         if (DrawCircle)
@@ -190,59 +133,62 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (fBlocking)
             {
                 SetCursor(LoadCursor(NULL, IDC_CROSS));
-                DrawCircleOutline(hWnd, ptBeg, ptEnd);
-                ptEnd.x = LOWORD(lParam);
-                ptEnd.y = HIWORD(lParam);
-                DrawCircleOutline(hWnd, ptBeg, ptEnd);
+                myCircle.DrawOutline(hWnd);
+                myCircle.ptEnd.x = LOWORD(lParam);
+                myCircle.ptEnd.y = HIWORD(lParam);
+                myCircle.DrawOutline(hWnd);
             }
         }
         if (DrawContinuousLine)
         {
             if (isDown)
             {
-                POINT pt;
-                GetClientRect(hWnd, &rect);
-                pt.x = LOWORD(lParam);
-                pt.y = HIWORD(lParam);
-                continuousLine.push_back(pt);
-                DrawLineContinuous(hWnd, continuousLine);
+                myContinuousLine.pt.x = LOWORD(lParam);
+                myContinuousLine.pt.y = HIWORD(lParam);
+                myContinuousLine.Line.push_back(myContinuousLine.pt);
+                myContinuousLine.DrawOutline(hWnd);
             }
         }
         break;
     case WM_LBUTTONDOWN:
-        count++;
         if (DrawRect)
         {
-            ptBeg.x = ptEnd.x = LOWORD(lParam);
-            ptBeg.y = ptEnd.y = HIWORD(lParam);
-            DrawBoxOutline(hWnd, ptBeg, ptEnd);
+            myRect.ptBeg.x = myRect.ptEnd.x = LOWORD(lParam);
+            myRect.ptBeg.y = myRect.ptEnd.y = HIWORD(lParam);
+            myRect.Pen = Pen;
+            myRect.Brush = MyBrush;
+            myRect.DrawOutLine(hWnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
             fBlocking = TRUE;
         }
         if (DrawLine)
         {
-            ptBeg.x = ptEnd.x = LOWORD(lParam);
-            ptBeg.y = ptEnd.y = HIWORD(lParam);
-            DrawLineOutline(hWnd, ptBeg, ptEnd);
+            myLine.ptBeg.x = myLine.ptEnd.x = LOWORD(lParam);
+            myLine.ptBeg.y = myLine.ptEnd.y = HIWORD(lParam);
+            myLine.Pen = Pen;
+            myLine.DrawOutline(hWnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
             fBlocking = TRUE;
         }
         if (DrawCircle)
         {
-            ptBeg.x = ptEnd.x = LOWORD(lParam);
-            ptBeg.y = ptEnd.y = HIWORD(lParam);
-            DrawCircleOutline(hWnd, ptBeg, ptEnd);
+            myCircle.ptBeg.x = myCircle.ptEnd.x = LOWORD(lParam);
+            myCircle.ptBeg.y = myCircle.ptEnd.y = HIWORD(lParam);
+            myCircle.Pen = Pen;
+            myCircle.Brush = MyBrush;
+            myCircle.DrawOutline(hWnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
             fBlocking = TRUE;
         }
         if (DrawContinuousLine)
         {
-            continuousLine.clear();
-            POINT pt;
-            pt.x = LOWORD(lParam);
-            pt.y = HIWORD(lParam);
-            continuousLine.push_back(pt);
-            isDown = true;
+            SetCapture(hWnd);
+            isDown = TRUE;
+            myContinuousLine.Line.clear();
+            myContinuousLine.pt.x = LOWORD(lParam);
+            myContinuousLine.pt.y = HIWORD(lParam);
+            myContinuousLine.Line.push_back(myContinuousLine.pt);
+            myContinuousLine.Pen = Pen;
             InvalidateRect(hWnd, NULL, TRUE);
         }
         break;
@@ -251,50 +197,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             if (fBlocking)
             {
-                DrawBoxOutline(hWnd, ptBeg, ptEnd);
-                ptBoxBeg = ptBeg;
-                ptBoxEnd.x = LOWORD(lParam);
-                ptBoxEnd.y = HIWORD(lParam);
+                myRect.DrawOutLine(hWnd);
                 SetCursor(LoadCursor(NULL, IDC_ARROW));
                 fBlocking = FALSE;
                 fValidBox = TRUE;
                 InvalidateRect(hWnd, NULL, TRUE);
-                count--;
             }
         }
         if (DrawLine)
         {
             if (fBlocking)
             {
-                DrawLineOutline(hWnd, ptBeg, ptEnd);
-                ptBoxBeg = ptBeg;
-                ptBoxEnd.x = LOWORD(lParam);
-                ptBoxEnd.y = HIWORD(lParam);
+                myLine.DrawOutline(hWnd);
                 SetCursor(LoadCursor(NULL, IDC_ARROW));
                 fBlocking = FALSE;
                 fValidBox = TRUE;
                 InvalidateRect(hWnd, NULL, TRUE);
-                count--;
             }
         }
         if (DrawCircle)
         {
             if (fBlocking)
             {
-                DrawCircleOutline(hWnd, ptBeg, ptEnd);
-                ptBoxBeg = ptBeg;
-                ptBoxEnd.x = LOWORD(lParam);
-                ptBoxEnd.y = HIWORD(lParam);
+                myCircle.DrawOutline(hWnd);
                 SetCursor(LoadCursor(NULL, IDC_ARROW));
                 fBlocking = FALSE;
                 fValidBox = TRUE;
                 InvalidateRect(hWnd, NULL, TRUE);
-                count--;
             }
         }
         if (DrawContinuousLine)
         {
+            ReleaseCapture();
             isDown = FALSE;
+            myContinuousLine.DrawOutline(hWnd);
             InvalidateRect(hWnd, NULL, TRUE);
         }
         break;
@@ -326,7 +262,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            DrawCircle = FALSE;
            DrawRect = FALSE;
            DrawLine = FALSE;
-           count = 0;
            DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
            break;
        case IDM_NEW:
@@ -335,12 +270,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            DrawCircle = FALSE;
            DrawRect = FALSE;
            DrawLine = FALSE;
-           obj.resize(0);
-           LinePoints.resize(0);
+   
            InvalidateRect(hWnd, NULL, TRUE);
            DeleteObject(hBitmap);
            fValidBox = FALSE;
-           count = 0;
            break;
        case IDM_OPEN:
            DrawContinuousLine = FALSE;
@@ -348,9 +281,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            DrawCircle = FALSE;
            DrawRect = FALSE;
            DrawLine = FALSE;
-           count = 0;
            InvalidateRect(hWnd, NULL, TRUE);
-           obj.resize(0);
            fValidBox = FALSE;
            hBitmap=Open(hWnd,bSize);
            break;
@@ -360,66 +291,36 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            DrawCircle = FALSE;
            DrawRect = FALSE;
            DrawLine = FALSE;
-           count = 0;
            ShowWindow(ToolBar, SW_HIDE);
            Save(hWnd,bSize);
            ShowWindow(ToolBar, TRUE);
            break;
        case IDM_CIRCLE:
-           if (DrawLine || DrawRect)
-           {
-               ptBeg.x = ptEnd.x = 0;
-               ptBeg.y = ptEnd.y = 0;
-               count = 0;
-           }
            DrawContinuousLine = FALSE;
-           DrawCircle = TRUE;
            DrawRect = FALSE;
            DrawLine = FALSE;
            hBrush = FALSE;
-           count++;
+           DrawCircle = TRUE;
            break;
        case IDM_LINE:
-           if (DrawCircle || DrawRect)
-           {
-               ptBeg.x = ptEnd.x = 0;
-               ptBeg.y = ptEnd.y = 0;
-               count = 0;
-           }
            DrawContinuousLine = FALSE;
-           DrawLine = TRUE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
-           count++;
+           DrawLine = TRUE;
            break;
        case IDM_RECT:
-           if (DrawLine || DrawCircle)
-           {
-               ptBeg.x = ptEnd.x = 0;
-               ptBeg.y = ptEnd.y = 0;
-               count = 0;
-           }
-           DrawContinuousLine = FALSE;
-               hBrush = FALSE;
-               DrawLine = FALSE;
-               DrawCircle = FALSE;
-               DrawRect = TRUE;
-               count++;
+            DrawContinuousLine = FALSE;
+            hBrush = FALSE;
+            DrawLine = FALSE;
+            DrawCircle = FALSE;
+            DrawRect = TRUE;
            break;
        case IDM_СONTINUOUS_LINE:
-           if (DrawLine || DrawCircle||DrawRect)
-           {
-               ptBeg.x = ptEnd.x = 0;
-               ptBeg.y = ptEnd.y = 0;
-               count = 0;
-           }
-           hBrush = FALSE;
            DrawLine = FALSE;
            DrawCircle = FALSE;
            DrawRect = FALSE;
            DrawContinuousLine = TRUE;
            break;
-      
        case IDM_EXIT:
            DestroyWindow(hWnd);
            break;
@@ -428,110 +329,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
     { 
         hDC = BeginPaint(hWnd, &ps);
-        static BOOL myBool = FALSE;
         MyBrush = CreateSolidBrush(RGB(pRedBrush, pGreenBrush, pBlueBrush));
-        if (!pNullBrush)
-        {
-            Pen = CreatePen(PS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
-        }
-        else
-        {
-            Pen = CreatePen(PS_NULL, pSize, RGB(pRed, pGreen, pBlue));
-        }
-      
-        Draw(hDC, obj); 
+        Pen = CreatePen(PS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
         if (DrawRect)
         {
-            if (fValidBox)
-            {
-                SelectObject(hDC, Pen);
-                if (hBrushButton)
-                {
-                    myBool = TRUE;
-                    SelectObject(hDC, GetStockObject(NULL_BRUSH));
-                }
-                else 
-                {
-                    myBool = FALSE;
-                    SelectObject(hDC, MyBrush);
-                }
-                Rectangle(hDC, ptBoxBeg.x, ptBoxBeg.y, ptBoxEnd.x, ptBoxEnd.y);
-                rect.left = ptBeg.x;
-                rect.top = ptBeg.y;
-                rect.right = ptEnd.x;
-                rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_RECT,rect,Pen,MyBrush,myBool,pNullBrush });
-            }
-           if (fBlocking)
-            {
-               InvalidateRect(hWnd, NULL, TRUE);
-            }
+            myRect.DrawOutLine(hWnd);
+            myRect.Clear();
         }
         if (DrawLine)
         {
-            if (fValidBox)
-            {
-                SelectObject(hDC, Pen);
-                MoveToEx(hDC, ptBeg.x, ptBeg.y, NULL);
-                LineTo(hDC, ptEnd.x, ptEnd.y);
-                rect.left = ptBeg.x;
-                rect.top = ptBeg.y;
-                rect.right = ptEnd.x;
-                rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_LINE,rect,Pen,MyBrush,myBool,pNullBrush});
-            }
-            if (fBlocking)
-            {
-                InvalidateRect(hWnd, NULL, TRUE);
-            }
+            myLine.DrawOutline(hWnd);
+            myLine.Clear();
         }
         if (DrawCircle)
         {
-            if (fValidBox)
-            {
-                SelectObject(hDC, Pen);
-                if (hBrushButton)
-                {
-                    myBool = TRUE;
-                    SelectObject(hDC, GetStockObject(NULL_BRUSH));
-                }
-                else
-                {
-                    myBool = FALSE;
-                    SelectObject(hDC, MyBrush);
-                }
-                Ellipse(hDC, ptBoxBeg.x, ptBoxBeg.y, ptBoxEnd.x, ptBoxEnd.y);
-                rect.left = ptBeg.x;
-                rect.top = ptBeg.y;
-                rect.right = ptEnd.x;
-                rect.bottom = ptEnd.y;
-                obj.push_back({ IDM_CIRCLE,rect,Pen,MyBrush,myBool,pNullBrush});
-            }
-            if (fBlocking)
-            {
-                InvalidateRect(hWnd, NULL, TRUE);
-            }
+            myCircle.DrawOutline(hWnd);
+            myCircle.Clear();
         }
         if (DrawContinuousLine)
         {
-            if (continuousLine.size() > 1)
-            {
-                if (pNullBrush)
-                {
-                    SelectObject(hDC, GetStockObject(NULL_BRUSH));
-                }
-                else
-                {
-                    SelectObject(hDC, Pen);
-                }
-                MoveToEx(hDC, continuousLine[0].x, continuousLine[0].y, NULL);
-                for (size_t i = 1; i < continuousLine.size(); ++i) {
-                    LineTo(hDC, continuousLine[i].x, continuousLine[i].y);
-                  
-                }
-                obj.push_back({ IDM_СONTINUOUS_LINE,rect,Pen,MyBrush,myBool,pNullBrush });
-                LinePoints.push_back(continuousLine);
-            }
+            myContinuousLine.DrawOutline(hWnd);
+            myContinuousLine.Clear();
         }
         EndPaint(hWnd, &ps);
         break;
@@ -547,78 +365,4 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, uMsg, wParam, lParam);
     }
     return 0;
-}
-
-void Draw(HDC hDC, std::vector<std::tuple<INT, RECT, HPEN, HBRUSH, BOOL,BOOL>> obj)
-{
-    HBRUSH Fill;
-    HPEN drawPen;
-    HDC hMemDC;
-    BITMAP bm;
-    hMemDC = CreateCompatibleDC(hDC);
-    GetObject(hBitmap, sizeof(BITMAP), &bm);
-    SelectObject(hMemDC, hBitmap);
-    BitBlt(hDC, NULL, bSize, bm.bmWidth, bm.bmHeight, hMemDC, 0, 0, SRCCOPY);
-    static BOOL nPen;
-    for (int i = 0; i < obj.size(); i++)
-    {
-        static RECT rect;
-        static INT num;
-        if (std::get<0>(obj[i]) == 98)
-        {
-            drawPen = std::get<2>(obj[i]);
-            SelectObject(hDC, drawPen);
-            rect = std::get<1>(obj[i]);
-            MoveToEx(hDC, rect.left, rect.top, NULL);
-            LineTo(hDC, rect.right, rect.bottom);
-        }
-        else if (std::get<0>(obj[i]) == 97)
-        {
-            nPen = std::get<5>(obj[i]);
-            rect = std::get<1>(obj[i]);
-            Fill = std::get<3>(obj[i]);
-            drawPen = std::get<2>(obj[i]);
-            SelectObject(hDC, drawPen);
-           
-            if (std::get<4>(obj[i]))
-            {
-                SelectObject(hDC, GetStockObject(NULL_BRUSH));
-            }
-            else
-            {
-                SelectObject(hDC, Fill);
-            }
-            Rectangle(hDC, rect.left, rect.top, rect.right, rect.bottom);
-        }
-        else if (std::get<0>(obj[i]) == 99)
-        {
-            rect = std::get<1>(obj[i]);
-            Fill = std::get<3>(obj[i]);
-            drawPen = std::get<2>(obj[i]);
-            SelectObject(hDC, drawPen);
-            if (std::get<4>(obj[i]))
-            {
-                SelectObject(hDC, GetStockObject(NULL_BRUSH));
-            }
-            else
-            {
-                SelectObject(hDC, Fill);
-            }
-            Ellipse(hDC, rect.left, rect.top, rect.right, rect.bottom);
-        }
-        else if (std::get<0>(obj[i]) == 94)
-        {
-            drawPen = std::get<2>(obj[i]);
-            SelectObject(hDC, drawPen);
-            for (int i = 0; i < LinePoints.size(); i++)
-            {
-                MoveToEx(hDC, LinePoints[i][0].x, LinePoints[i][0].y, NULL);
-                for (int j = 0; j < LinePoints[i].size(); j++)
-                {
-                    LineTo(hDC, LinePoints[i][j].x, LinePoints[i][j].y);
-                }
-            }
-        }
-    }
-    DeleteObject(hMemDC);
 }
