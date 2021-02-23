@@ -34,8 +34,6 @@ INT_PTR CALLBACK DlgProcPen(HWND DialogBox, UINT uMsg, WPARAM wParam, LPARAM lPa
             {
                 pNullBrush = TRUE;
             }
-
-            pSize = size = 0;
             Green = 0;
             Red = 0;
             Blue = 0;

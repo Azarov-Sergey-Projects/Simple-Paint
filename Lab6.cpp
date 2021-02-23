@@ -3,11 +3,12 @@
 
 #include <Windows.h>
 #include <vector>
-#include <map>
-#include <tuple>
 #include <assert.h>
 
-#include "Object.h"
+#include "Rectangle.h"
+#include "Circle.h"
+#include "ContinuousLine.h"
+#include "Line.h"
 #include "Bitmap.h"
 #include "OpenSaving.h"
 #include "DialogPen.h"
@@ -22,17 +23,12 @@
 //основные функции
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-//нажатие на вид 
-static BOOL DrawRect = FALSE;
-static BOOL DrawLine = FALSE;
-static BOOL DrawCircle = FALSE;
-static BOOL DrawContinuousLine = FALSE;
 //позиции мшки
 static HPEN Pen;
 //характеристики заливки
 static HBRUSH MyBrush;
 //для загрузки файлов 
-static HBITMAP hBitmap;
+HBITMAP hBitmap;
 //главное окно и окно ToolBar
 HWND hWnd;
 static HWND ToolBar;
@@ -76,12 +72,43 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
     }
     return msg.wParam;
 }
+HDC CaptureAnImage(HWND hWnd)
+{
+    HDC hdcScreen;
+    HDC hdcWindow;
+    HDC hdcMemDC = NULL;
+    // Retrieve the handle to a display device context for the client 
+    // area of the window. 
+    hdcWindow = GetDC(hWnd);
+    hdcScreen = GetDC(hWnd);
+    // Create a compatible DC, which is used in a BitBlt from the window DC.
+    hdcMemDC = CreateCompatibleDC(hdcWindow);
+    //hbmScreen = CreateCompatibleBitmap(hdcWindow, 150, 150);
 
+    // Get the client area for size calculation.
+    RECT rcClient;
+    GetClientRect(hWnd, &rcClient);
+
+    // This is the best stretch mode.
+    SetStretchBltMode(hdcWindow, HALFTONE);
+
+    // The source DC is the entire screen, and the destination DC is the current window (HWND).
+    StretchBlt(hdcScreen,
+        rcClient .left, rcClient.top,
+        rcClient.right , rcClient.bottom,
+        hdcMemDC,
+        0, 0,
+        rcClient.right,
+        rcClient.bottom,
+        SRCCOPY);
+    return hdcWindow;
+}
 
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    HDC hDC;
+    static HDC hDC;
+    RECT rect = { 0 };
     static PAINTSTRUCT ps;
     static Rect myRect;
     static Line myLine;
@@ -110,10 +137,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (myLine.isDown)
             {
                 SetCursor(LoadCursor(NULL, IDC_CROSS));
-                myLine.DrawOutline(hWnd);
+                myLine.DrawOutLine(hWnd);
                 myLine.ptEnd.x = LOWORD(lParam);
                 myLine.ptEnd.y = HIWORD(lParam);
-                myLine.DrawOutline(hWnd);
+                myLine.DrawOutLine(hWnd);
             }
         }
         if (myCircle.Draw)
@@ -121,10 +148,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (myCircle.isDown)
             {
                 SetCursor(LoadCursor(NULL, IDC_CROSS));
-                myCircle.DrawOutline(hWnd);
+                myCircle.DrawOutLine(hWnd);
                 myCircle.ptEnd.x = LOWORD(lParam);
                 myCircle.ptEnd.y = HIWORD(lParam);
-                myCircle.DrawOutline(hWnd);
+                myCircle.DrawOutLine(hWnd);
             }
         }
         if (myContinuousLine.Draw)
@@ -133,8 +160,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 myContinuousLine.pt.x = LOWORD(lParam);
                 myContinuousLine.pt.y = HIWORD(lParam);
-                myContinuousLine.Line.push_back(myContinuousLine.pt);
-                myContinuousLine.DrawOutline(hWnd);
+                if (myContinuousLine.pt.x <= rect.left+bSize || myContinuousLine.pt.y <= rect.top+bSize)
+                {
+                    SendMessageW(hWnd, WM_LBUTTONDOWN, wParam, lParam);
+                    ReleaseCapture();
+                }
+                else
+                {
+                    SetCapture(hWnd);
+                    myContinuousLine.Line.push_back(myContinuousLine.pt);
+                    myContinuousLine.DrawOutLine(hWnd);
+                }
             }
         }
         break;
@@ -154,7 +190,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             myLine.ptBeg.x = myLine.ptEnd.x = LOWORD(lParam);
             myLine.ptBeg.y = myLine.ptEnd.y = HIWORD(lParam);
             myLine.Pen = Pen;
-            myLine.DrawOutline(hWnd);
+            myLine.DrawOutLine(hWnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
             myLine.isDown = TRUE;
         }
@@ -164,7 +200,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             myCircle.ptBeg.y = myCircle.ptEnd.y = HIWORD(lParam);
             myCircle.Pen = Pen;
             myCircle.Brush = MyBrush;
-            myCircle.DrawOutline(hWnd);
+            myCircle.DrawOutLine(hWnd);
             SetCursor(LoadCursor(NULL, IDC_CROSS));
             myCircle.isDown = TRUE;
         }
@@ -177,7 +213,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             myContinuousLine.pt.y = HIWORD(lParam);
             myContinuousLine.Line.push_back(myContinuousLine.pt);
             myContinuousLine.Pen = Pen;
-            InvalidateRect(hWnd, NULL, TRUE);
+            myContinuousLine.DrawOutLine(hWnd);
         }
         break;
     case WM_LBUTTONUP:
@@ -190,14 +226,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         if (myLine.Draw)
         {
-             myLine.DrawOutline(hWnd);
+             myLine.DrawOutLine(hWnd);
              SetCursor(LoadCursor(NULL, IDC_ARROW));
              myLine.isDown = FALSE;
              InvalidateRect(hWnd, NULL, TRUE);
         }
         if (myCircle.Draw)
         {
-             myCircle.DrawOutline(hWnd);
+             myCircle.DrawOutLine(hWnd);
              SetCursor(LoadCursor(NULL, IDC_ARROW));
              myCircle.isDown = FALSE;
              InvalidateRect(hWnd, NULL, TRUE);
@@ -206,7 +242,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             ReleaseCapture();
             myContinuousLine.isDown = FALSE;
-            myContinuousLine.DrawOutline(hWnd);
+            myContinuousLine.DrawOutLine(hWnd);
             InvalidateRect(hWnd, NULL, TRUE);
         }
         break;
@@ -230,6 +266,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
            SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, FALSE);
            InvalidateRect(hWnd, NULL, TRUE);
            DeleteObject(hBitmap);
+           myContinuousLine.Clear();
            break;
        case IDM_OPEN:
            SetParameters(myRect, myLine, myCircle, myContinuousLine, FALSE, FALSE, FALSE, FALSE);
@@ -260,33 +297,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        }
     }
     case WM_PAINT:
-    { 
         hDC = BeginPaint(hWnd, &ps);
         MyBrush = CreateSolidBrush(RGB(pRedBrush, pGreenBrush, pBlueBrush));
-        Pen = CreatePen(PS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
-        if (myRect.Draw)
+        if (pNullBrush)
         {
-            myRect.DrawOutLine(hWnd);
-            myRect.Clear();
+            Pen = CreatePen(PS_NULL, pSize, RGB(pRed, pGreen, pBlue));
         }
-        if (myLine.Draw)
+        else
         {
-            myLine.DrawOutline(hWnd);
-            myLine.Clear();
+            Pen = CreatePen(PS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
         }
-        if (myCircle.Draw)
-        {
-            myCircle.DrawOutline(hWnd);
-            myCircle.Clear();
-        }
-        if (myContinuousLine.Draw)
-        {
-            myContinuousLine.DrawOutline(hWnd);
-            myContinuousLine.Clear();
-        }
+       
+        //BitBlt(hDC, rect.left, rect.top, rect.right-rect.left ,rect.bottom-rect.top, hMemDC, rect.left, rect.top, SRCCOPY);
+        myRect.DrawOutLine(hWnd);
+        myRect.Clear();
+        myLine.DrawOutLine(hWnd);
+        myLine.Clear();
+        myCircle.DrawOutLine(hWnd);
+        myCircle.Clear();
+        myContinuousLine.DrawOutLine(hWnd);
+        myContinuousLine.Clear();
         EndPaint(hWnd, &ps);
         break;
-    }
     case WM_SIZE:
         SendMessage(ToolBar, TB_AUTOSIZE, 0, 0);
         break;
@@ -307,3 +339,4 @@ void SetParameters(Rect &myRect,Line &myLine,Circle &myCircle,ContinuousLine &my
     myCircle.Draw = circle;
     mycLine.Draw = cLine;
 }
+

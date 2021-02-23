@@ -82,22 +82,18 @@ void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP)
     pbih = reinterpret_cast<PBITMAPINFOHEADER>(pbi);
     lpBits = static_cast<LPBYTE>(GlobalAlloc(GMEM_FIXED, pbih->biSizeImage));
 
-    assert(lpBits);
-
     // Retrieve the color table (RGBQUAD array) and the bits  
     // (array of palette indices) from the DIB.  
-    assert(GetDIBits(hDC, hBMP, 0, static_cast<DWORD>(pbih->biHeight), lpBits, pbi,
-        DIB_RGB_COLORS));
-
+    GetDIBits(hDC, hBMP, 0, static_cast<DWORD>(pbih->biHeight), lpBits, pbi,
+        DIB_RGB_COLORS);
     // Create the .BMP file.  
     hf = CreateFileW(pszFile,
-        GENERIC_READ | GENERIC_WRITE,
-        static_cast<DWORD>(0),
+        GENERIC_WRITE,
+        0,
         NULL,
         CREATE_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        static_cast<HANDLE>(NULL));
-    assert(hf != INVALID_HANDLE_VALUE);
+        FILE_ATTRIBUTE_NORMAL, NULL);
+
 
     hdr.bfType = 0x4d42;
     hdr.bfSize = static_cast<DWORD>((sizeof(BITMAPFILEHEADER) +
@@ -112,21 +108,21 @@ void CreateBMPFile(LPCWSTR pszFile, HBITMAP hBMP)
         * sizeof(RGBQUAD));
 
     // Copy the BITMAPFILEHEADER into the .BMP file.  
-    assert(WriteFile(hf, (LPVOID)&hdr, sizeof(BITMAPFILEHEADER),
-        reinterpret_cast<LPDWORD>(&dwTmp), NULL));
+    WriteFile(hf, (LPVOID)&hdr, sizeof(BITMAPFILEHEADER),
+        reinterpret_cast<LPDWORD>(&dwTmp), NULL);
 
     // Copy the BITMAPINFOHEADER and RGBQUAD array into the file.  
-    assert(WriteFile(hf, static_cast<LPVOID>(pbih), sizeof(BITMAPINFOHEADER)
+   WriteFile(hf, static_cast<LPVOID>(pbih), sizeof(BITMAPINFOHEADER)
         + pbih->biClrUsed * sizeof(RGBQUAD),
-        reinterpret_cast<LPDWORD>(&dwTmp), (NULL)));
+        reinterpret_cast<LPDWORD>(&dwTmp), (NULL));
 
     // Copy the array of color indices into the .BMP file.  
     dwTotal = cb = pbih->biSizeImage;
     hp = lpBits;
-    assert(WriteFile(hf, reinterpret_cast<LPSTR>(hp), static_cast<int>(cb), reinterpret_cast<LPDWORD>(&dwTmp), NULL));
+    WriteFile(hf, reinterpret_cast<LPSTR>(hp), static_cast<int>(cb), reinterpret_cast<LPDWORD>(&dwTmp), NULL);
 
     // Close the .BMP file.  
-    assert(CloseHandle(hf));
+    CloseHandle(hf);
 
     // Free memory.  
     GlobalFree(static_cast<HGLOBAL>(lpBits));

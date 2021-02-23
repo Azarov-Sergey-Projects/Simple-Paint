@@ -1,5 +1,5 @@
 #include "OpenSaving.h"
-
+#include "Bitmap.h"
 void Save(HWND hWnd,INT bSize)
 {
     HDC hdc[2];
