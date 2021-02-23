@@ -72,38 +72,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
     }
     return msg.wParam;
 }
-HDC CaptureAnImage(HWND hWnd)
-{
-    HDC hdcScreen;
-    HDC hdcWindow;
-    HDC hdcMemDC = NULL;
-    // Retrieve the handle to a display device context for the client 
-    // area of the window. 
-    hdcWindow = GetDC(hWnd);
-    hdcScreen = GetDC(hWnd);
-    // Create a compatible DC, which is used in a BitBlt from the window DC.
-    hdcMemDC = CreateCompatibleDC(hdcWindow);
-    //hbmScreen = CreateCompatibleBitmap(hdcWindow, 150, 150);
-
-    // Get the client area for size calculation.
-    RECT rcClient;
-    GetClientRect(hWnd, &rcClient);
-
-    // This is the best stretch mode.
-    SetStretchBltMode(hdcWindow, HALFTONE);
-
-    // The source DC is the entire screen, and the destination DC is the current window (HWND).
-    StretchBlt(hdcScreen,
-        rcClient .left, rcClient.top,
-        rcClient.right , rcClient.bottom,
-        hdcMemDC,
-        0, 0,
-        rcClient.right,
-        rcClient.bottom,
-        SRCCOPY);
-    return hdcWindow;
-}
-
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -307,7 +275,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             Pen = CreatePen(PS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
         }
-       
         //BitBlt(hDC, rect.left, rect.top, rect.right-rect.left ,rect.bottom-rect.top, hMemDC, rect.left, rect.top, SRCCOPY);
         myRect.DrawOutLine(hWnd);
         myRect.Clear();
@@ -324,6 +291,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_DESTROY:
         DeleteObject(hBitmap);
+        DeleteObject(Pen);
+        DeleteObject(MyBrush);
         PostQuitMessage(0);
         break;
     default:
