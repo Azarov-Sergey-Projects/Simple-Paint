@@ -33,8 +33,20 @@ HBITMAP hBitmap;
 HWND hWnd;
 static HWND ToolBar;
 
-void SetParameters(Rect &myRect, Line &myLine, Circle &myCircle, ContinuousLine &mycLine, BOOL rect, BOOL line, BOOL circle, BOOL cLine);
 
+void SetParameters(Rect &myRect, Line &myLine, Circle &myCircle, ContinuousLine &mycLine, BOOL rect, BOOL line, BOOL circle, BOOL cLine);
+void WMCreateCanvas(HWND hWnd, HDC& hdcMem)
+{
+    RECT rc;
+    GetClientRect(hWnd, &rc);
+    HDC hdc = GetDC(hWnd);
+    hdcMem = CreateCompatibleDC(hdc);
+    const int width = rc.right - rc.left;
+    const int height = rc.bottom - rc.top;
+    SelectObject(hdcMem, hBitmap);
+    BitBlt(hdcMem, 0, 0, width, height, hdc, 0, 0, WHITENESS);
+    ReleaseDC(hWnd, hdc);
+}
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
 {
     TCHAR szClassName[] = TEXT("Мой класс");
@@ -75,7 +87,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    static HDC hDC;
+    HDC hDC = GetDC(hWnd);
+    HDC hMemDC = CreateCompatibleDC(hDC);
     RECT rect = { 0 };
     static PAINTSTRUCT ps;
     static Rect myRect;
@@ -86,7 +99,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
         InvalidateRect(hWnd, NULL, TRUE);
+        GetClientRect(hWnd, &rect);
         ToolBar = CreateSimpleToolbar(hWnd);
+        hDC = GetDC(hWnd);
+        hMemDC = CreateCompatibleDC(hDC);
+        WMCreateCanvas(hWnd, hMemDC);
+        ReleaseDC(hWnd, hDC);
         break;
     case WM_MOUSEMOVE:
         if (myRect.Draw)
@@ -187,10 +205,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONUP:
         if (myRect.Draw)
         {
-             myRect.DrawOutLine(hWnd);
-             SetCursor(LoadCursor(NULL, IDC_ARROW));
-             myRect.isDown = FALSE;
-             InvalidateRect(hWnd, NULL, TRUE);
+            hDC = GetDC(hWnd);
+            myRect.DrawOutLine(hWnd);
+            GetClientRect(hWnd, &rect);
+            BitBlt(hMemDC, 0, 0, rect.right, rect.bottom, hDC, 0, 0, SRCCOPY);
+            SetCursor(LoadCursor(NULL, IDC_ARROW));
+            myRect.isDown = FALSE;
+            InvalidateRect(hWnd, NULL, TRUE);
         }
         if (myLine.Draw)
         {
@@ -266,6 +287,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
     case WM_PAINT:
         hDC = BeginPaint(hWnd, &ps);
+        GetClientRect(hWnd, &rect);
         MyBrush = CreateSolidBrush(RGB(pRedBrush, pGreenBrush, pBlueBrush));
         if (pNullBrush)
         {
@@ -275,7 +297,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             Pen = CreatePen(PS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
         }
-        //BitBlt(hDC, rect.left, rect.top, rect.right-rect.left ,rect.bottom-rect.top, hMemDC, rect.left, rect.top, SRCCOPY);
+        BitBlt(hDC, 0, 0, rect.right, rect.bottom, hMemDC, 0, 0, SRCCOPY);
         myRect.DrawOutLine(hWnd);
         myRect.Clear();
         myLine.DrawOutLine(hWnd);
@@ -308,4 +330,3 @@ void SetParameters(Rect &myRect,Line &myLine,Circle &myCircle,ContinuousLine &my
     myCircle.Draw = circle;
     mycLine.Draw = cLine;
 }
-

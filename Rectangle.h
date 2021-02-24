@@ -13,17 +13,12 @@ public:
 	}
 	void DrawOutLine(HWND hWnd)
 	{
-		RECT rect;
 		HDC hDC;
 		hDC = GetDC(hWnd);
 		SelectObject(hDC, Pen);
 		SetROP2(hDC, R2_MERGEPENNOT);
 		SelectObject(hDC, Brush);
 		Rectangle(hDC, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
-		GetClientRect(hWnd, &rect);
-
-		BitBlt(hMemDC, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.right, hDC, rect.left, rect.top, SRCCOPY);
-
 		ReleaseDC(hWnd, hDC);
 	}
 	~Rect()
@@ -35,5 +30,4 @@ public:
 	{
 		ptBeg.x = ptEnd.x = ptEnd.y = ptBeg.y = 0;
 	}
-
 };

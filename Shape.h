@@ -15,4 +15,3 @@ public:
 	virtual void DrawOutLine(HWND hWnd) = 0;
 };
 
-static HDC hMemDC;
