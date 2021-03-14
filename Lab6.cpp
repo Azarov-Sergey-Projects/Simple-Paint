@@ -30,7 +30,6 @@ static HBRUSH MyBrush;
 //для загрузки файлов 
 HBITMAP hBitmap;
 //главное окно и окно ToolBar
-HWND hWnd;
 static HWND ToolBar;
 
 
@@ -69,7 +68,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
         MessageBox(NULL, TEXT("Не получилось зарегистрировать класс!"), TEXT("Ошибка"), MB_OK);
         return NULL;
     }
-    hWnd = CreateWindow(szClassName, TEXT("Лабораторая работа 6"), WS_OVERLAPPEDWINDOW | WS_VSCROLL, CW_USEDEFAULT, NULL, CW_USEDEFAULT, NULL, static_cast<HWND>(NULL), NULL, static_cast<HINSTANCE>(hInst), NULL);
+
+    HWND hWnd = CreateWindow(szClassName, TEXT("Лабораторая работа 6"), WS_OVERLAPPEDWINDOW | WS_VSCROLL, CW_USEDEFAULT, NULL, CW_USEDEFAULT, NULL, static_cast<HWND>(NULL), NULL, static_cast<HINSTANCE>(hInst), NULL);
     if (!hWnd)
     {
         MessageBox(NULL, TEXT("Не получилось создать окно!"), TEXT("Ошибка"), MB_OK);
@@ -85,10 +85,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, PSTR szCmdLine, int
     return msg.wParam;
 }
 
+HDC hMemDC = NULL;
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    HDC hDC = GetDC(hWnd);
-    HDC hMemDC = CreateCompatibleDC(hDC);
     RECT rect = { 0 };
     static PAINTSTRUCT ps;
     static Rect myRect;
@@ -98,13 +98,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     switch (uMsg)
     {
     case WM_CREATE:
-        InvalidateRect(hWnd, NULL, TRUE);
-        GetClientRect(hWnd, &rect);
-        ToolBar = CreateSimpleToolbar(hWnd);
-        hDC = GetDC(hWnd);
-        hMemDC = CreateCompatibleDC(hDC);
-        WMCreateCanvas(hWnd, hMemDC);
-        ReleaseDC(hWnd, hDC);
+    {
+        InvalidateRect( hWnd, NULL, TRUE );
+        GetClientRect( hWnd, &rect );
+        ToolBar = CreateSimpleToolbar( hWnd );
+       HDC hDC = GetDC( hWnd );
+        WMCreateCanvas( hWnd, hMemDC );
+        ReleaseDC( hWnd, hDC );
+    }
         break;
     case WM_MOUSEMOVE:
         if (myRect.Draw)
@@ -205,13 +206,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONUP:
         if (myRect.Draw)
         {
-            hDC = GetDC(hWnd);
-            myRect.DrawOutLine(hWnd);
             GetClientRect(hWnd, &rect);
-            BitBlt(hMemDC, 0, 0, rect.right, rect.bottom, hDC, 0, 0, SRCCOPY);
+            myRect.DrawOutLineFin(hWnd, hMemDC, rect.right - rect.left, rect.bottom - rect.top);
+            //BitBlt(hMemDC, 0, 0, rect.right, rect.bottom, hDC, 0, 0, SRCCOPY);
             SetCursor(LoadCursor(NULL, IDC_ARROW));
             myRect.isDown = FALSE;
-            InvalidateRect(hWnd, NULL, TRUE);
+          //  InvalidateRect(hWnd, NULL, TRUE);
         }
         if (myLine.Draw)
         {
@@ -286,9 +286,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
        }
     }
     case WM_PAINT:
-        hDC = BeginPaint(hWnd, &ps);
-        GetClientRect(hWnd, &rect);
-        MyBrush = CreateSolidBrush(RGB(pRedBrush, pGreenBrush, pBlueBrush));
+    {
+        HDC hDC = BeginPaint( hWnd, &ps );
+        GetClientRect( hWnd, &rect );
+        /*MyBrush = CreateSolidBrush(RGB(pRedBrush, pGreenBrush, pBlueBrush));
         if (pNullBrush)
         {
             Pen = CreatePen(PS_NULL, pSize, RGB(pRed, pGreen, pBlue));
@@ -296,17 +297,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
         {
             Pen = CreatePen(PS_SOLID, pSize, RGB(pRed, pGreen, pBlue));
-        }
-        BitBlt(hDC, 0, 0, rect.right, rect.bottom, hMemDC, 0, 0, SRCCOPY);
-        myRect.DrawOutLine(hWnd);
+        }*/
+        BitBlt( hDC, 0, 0, rect.right - rect.left, rect.bottom - rect.top, hMemDC, 0, 0, SRCCOPY );
+        //myRect.DrawOutLine(hWnd);
         myRect.Clear();
-        myLine.DrawOutLine(hWnd);
+        // myLine.DrawOutLine(hWnd);
         myLine.Clear();
-        myCircle.DrawOutLine(hWnd);
+        // myCircle.DrawOutLine(hWnd);
         myCircle.Clear();
-        myContinuousLine.DrawOutLine(hWnd);
+        //myContinuousLine.DrawOutLine(hWnd);
         myContinuousLine.Clear();
-        EndPaint(hWnd, &ps);
+        EndPaint( hWnd, &ps );
+    }
         break;
     case WM_SIZE:
         SendMessage(ToolBar, TB_AUTOSIZE, 0, 0);
