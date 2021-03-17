@@ -23,6 +23,17 @@ public:
 		LineTo(hDC, ptEnd.x, ptEnd.y);
 		ReleaseDC(hWnd, hDC);
 	}
+	void DrawOutLineFin(HWND hWnd, HDC hdcMem, int width, int height)
+	{
+		HDC hDC;
+		hDC = GetDC(hWnd);
+		SelectObject(hDC, Pen);
+		SelectObject(hDC, Brush);
+		MoveToEx(hDC, ptBeg.x, ptBeg.y, NULL);
+		LineTo(hDC, ptEnd.x, ptEnd.y);
+		BitBlt(hdcMem, 0, 0, width, height, hDC, 0, 0, SRCCOPY);
+		ReleaseDC(hWnd, hDC);
+	}
 	~Line()
 	{
 		DeleteObject(Pen);

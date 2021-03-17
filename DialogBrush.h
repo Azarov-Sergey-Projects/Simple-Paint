@@ -3,7 +3,6 @@
 #include "resource2.h"
 
 static BOOL hBrushButton = TRUE;
-static BOOL hBrush = FALSE;
 static INT pGreenBrush = 255;
 static INT pRedBrush = 255;
 static INT pBlueBrush = 255;

@@ -1,5 +1,8 @@
 #pragma once
 #include "Shape.h"
+#include "DialogBrush.h"
+
+static BOOL CanDraw = hBrushButton;
 class Rect :public Object
 {
 public:
@@ -16,9 +19,34 @@ public:
 		HDC hDC;
 		hDC = GetDC(hWnd);
 		SelectObject(hDC, Pen);
+		if (hBrushButton)
+		{
+			SelectObject(hDC, GetStockObject(NULL_BRUSH));
+		}
+		else
+		{
+			SelectObject(hDC, Brush);
+		}
+	
 		SetROP2(hDC, R2_MERGEPENNOT);
-		SelectObject(hDC, Brush);
 		Rectangle(hDC, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
+		ReleaseDC(hWnd, hDC);
+	}
+	void DrawOutLineFin(HWND hWnd, HDC hdcMem, int width, int height)
+	{
+		HDC hDC;
+		hDC = GetDC(hWnd);
+		SelectObject(hDC, Pen);
+		if (hBrushButton)
+		{
+			SelectObject(hDC, GetStockObject(NULL_BRUSH));
+		}
+		else
+		{
+			SelectObject(hDC, Brush);
+		}
+		Rectangle(hDC, ptBeg.x, ptBeg.y, ptEnd.x, ptEnd.y);
+		BitBlt(hdcMem, 0, 0, width, height, hDC, 0, 0, SRCCOPY);
 		ReleaseDC(hWnd, hDC);
 	}
 	~Rect()

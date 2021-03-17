@@ -30,6 +30,23 @@ public:
 			ReleaseDC(hWnd, hDC);
 		}
 	}
+	void DrawOutLineFin(HWND hWnd, HDC hdcMem, int width, int height)
+	{
+		HDC hDC;
+		hDC = GetDC(hWnd);
+		SelectObject(hDC, Pen);
+		SelectObject(hDC, Brush);
+		if (Line.size() > 1)
+		{
+			MoveToEx(hDC, Line[0].x, Line[0].y, NULL);
+			for (int i = 1; i < Line.size(); ++i)
+			{
+				LineTo(hDC, Line[i].x, Line[i].y);
+			}
+		}
+		BitBlt(hdcMem, 0, 0, width, height, hDC, 0, 0, SRCCOPY);
+		ReleaseDC(hWnd, hDC);
+	}
 	~ContinuousLine()
 	{
 		DeleteObject(Pen);
